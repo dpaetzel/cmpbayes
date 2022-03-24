@@ -32,3 +32,13 @@ runs the example.
 For comparing two algorithms on a single data set as well as two algorithms on
 multiple data sets, please be referred to [the baycomp
 library](https://github.com/janezd/baycomp).
+
+
+## Installation
+
+
+You should be able to install the package via pip like so:
+
+```bash
+pip install git+https://github.com/dpaetzel/cmpbayes
+```
