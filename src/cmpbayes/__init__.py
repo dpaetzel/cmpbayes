@@ -1,3 +1,6 @@
+# Copyright (C) 2022 David Pätzel <david.paetzel@posteo.de>
+# SPDX-License-Identifier: GPL-3.0-only
+
 __version__ = '0.0.1'
 
 import arviz as az
