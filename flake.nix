@@ -12,8 +12,6 @@
       };
       python = pkgs.python39;
     in {
-      # TODO In order to provide a proper default flake here we need to package
-      # pystan/httpstan properly.
       defaultPackage.x86_64-linux = python.pkgs.buildPythonPackage rec {
         pname = "cmpbayes";
         version = "0.0.1-beta";
@@ -23,9 +21,17 @@
         # We use pyproject.toml.
         format = "pyproject";
 
+        # TODO In order to provide a proper default flake here we need to
+        # package pystan/httpstan properly. For now, we assume that pystan is
+        # already there.
+        postPatch = ''
+          sed -i "s/^.*pystan.*$//" setup.cfg
+        '';
+
         propagatedBuildInputs = with python.pkgs; [
-            numpy
             arviz
+            matplotlib
+            numpy
             pandas
         ];
 
