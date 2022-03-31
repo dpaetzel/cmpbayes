@@ -14,7 +14,7 @@
     in {
       defaultPackage.x86_64-linux = python.pkgs.buildPythonPackage rec {
         pname = "cmpbayes";
-        version = "0.0.1-beta";
+        version = "0.0.2-beta";
 
         src = self;
 

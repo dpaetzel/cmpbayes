@@ -1,7 +1,7 @@
 # Copyright (C) 2022 David Pätzel <david.paetzel@posteo.de>
 # SPDX-License-Identifier: GPL-3.0-only
 
-__version__ = '0.0.1'
+__version__ = '0.0.2-beta'
 
 import arviz as az
 import matplotlib.pyplot as plt
