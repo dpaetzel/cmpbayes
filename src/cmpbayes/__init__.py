@@ -65,6 +65,8 @@ def fit_calvo(metrics, higher_better=True, **kwargs):
     with open(pl_stan_filename) as f:
         program_code = f.read()
 
+    n_instances, n_algorithms = metrics.shape
+
     data = {
         "n_instances": n_instances,
         "n_algorithms": n_algorithms,
