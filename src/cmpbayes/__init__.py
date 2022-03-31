@@ -55,7 +55,7 @@ def fit_calvo(metrics, higher_better=True, **kwargs):
     # np.argsort sorts ascendingly, if higher is better we thus want to reverse the
     # ordering such that the best stands at the front.
     if higher_better:
-        np.flip(orders, axis=1)
+        orders = np.flip(orders, axis=1)
 
     # Stan starts indexes from 1 and each element of orders is an index (i.e. an
     # algorithm number).
