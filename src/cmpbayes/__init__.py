@@ -4,6 +4,7 @@
 __version__ = '0.0.2-beta'
 
 import arviz as az
+import click
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -11,6 +12,7 @@ import stan
 from pkg_resources import resource_filename
 
 pl_stan_filename = resource_filename(__name__, "pl_model.stan")
+kruschke_filename = resource_filename(__name__, "kruschke.stan")
 
 
 def fit_calvo(metrics, higher_better=True, **kwargs):
@@ -83,7 +85,46 @@ def fit_calvo(metrics, higher_better=True, **kwargs):
     return fit
 
 
-if __name__ == '__main__':
+def fit_kruschke(y1, y2, **kwargs):
+    """
+    Compares the two samples using the model described in the 2013 article by
+    Kruschke, *Bayesian Estimation Supersedes the t Test*.
+
+    Parameters
+    ----------
+    y1 : array of shape (n_instances, n_algorithms)
+         Independently (i.e. no cross-validation etc.) generated performance
+         statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+         return, …) of the first method to compare.
+    y2 : array of shape (n_instances, n_algorithms)
+         Independently (i.e. no cross-validation etc.) generated performance
+         statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+         return, …) of the second method to compare.
+    kwargs : kwargs
+         Same as `kwargs` argument of [fit_calvo][].
+
+    Returns
+    -------
+    object
+        A [stan.fit.Fit
+        object](https://pystan.readthedocs.io/en/latest/reference.html#stan.fit.Fit).
+    """
+    # Read the Stan model from disk.
+    with open(kruschke_filename) as f:
+        program_code = f.read()
+
+    n_runs, = y1.shape
+
+    data = dict(n_runs=n_runs, y1=y1, y2=y2)
+
+    model: stan.model.Model = stan.build(program_code, data=data)
+
+    fit: stan.fit.Fit = model.sample(**kwargs)
+
+    return model, fit
+
+
+def test_calvo():
     seed = 2
     rng = np.random.default_rng(seed)
 
@@ -117,6 +158,73 @@ if __name__ == '__main__':
         # dims=…,
     )
 
+    summary = az.summary(azd)
+
+    print(summary)
+
+    az.plot_forest(azd, var_names=["~loglik", "~rest"])
     az.plot_posterior(azd)
     az.plot_trace(azd)
     plt.show()
+
+
+def test_kruschke():
+    seed = 3
+    rng = np.random.default_rng(seed)
+
+    n_runs = 30
+
+    y1 = rng.normal(loc=100, scale=20, size=(n_runs))
+    y2 = rng.normal(loc=103, scale=10, size=(n_runs))
+
+    model, fit = fit_kruschke(y1, y2)
+
+    # See https://oriolabril.github.io/arviz/api/generated/arviz.from_pystan.html .
+    azd = az.from_pystan(
+        posterior=fit,
+        posterior_model=model,
+        observed_data=["y1", "y2"],
+        posterior_predictive=["y1_rep", "y2_rep"],
+    )
+
+    var_names = ["~y2_rep", "~y1_rep"]
+
+    summary = az.summary(azd, filter_vars="like", var_names=var_names)
+    print(summary)
+
+    az.plot_ppc(azd,
+                kind="kde",
+                data_pairs={
+                    "y1": "y1_rep",
+                    "y2": "y2_rep"
+                },
+                num_pp_samples=10)
+    az.plot_posterior(azd, filter_vars="like", var_names=var_names)
+    az.plot_trace(azd, filter_vars="like", var_names=var_names)
+    az.plot_density(azd.posterior.mu2 - azd.posterior.mu1, hdi_markers="v")
+    plt.show()
+
+
+tests = {
+    "kruschke": test_kruschke,
+    "calvo": test_calvo,
+}
+
+
+@click.command()
+@click.argument("name")
+def test(name):
+    """
+    Run a very simple test scenario from randomly generated data for the model
+    NAME.
+    """
+    if name not in tests:
+        click.echo("Nope, that model doesn't exist or there are no tests for "
+                   "that model. Names of models with tests are: "
+                   f"{list(tests.keys())}")
+    else:
+        tests[name]()
+
+
+if __name__ == '__main__':
+    test()
