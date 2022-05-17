@@ -36,18 +36,18 @@ def fit_calvo(metrics, higher_better=True, **kwargs):
         regression tasks. This is required in order to be able to correctly
         compute the algorithm ranking.
     kwargs : kwargs
-        Are passed through to ``stan.model.Model.sample``. You may set
-        ``num_samples``, ``num_warmup`` and many more options here. See the
-        documentation of `sample
-        <https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample>`_
-        as well as the `code of the sampler currently used
-        <https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp>`_.
+        Are passed through to `stan.model.Model.sample`. You may set
+        `num_samples`, `num_warmup` and many more options here. See the
+        documentation of
+        [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
+        as well as the [code of the sampler currently
+        used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
 
     Returns
     -------
     object
-        A `stan.fit.Fit object
-        <https://pystan.readthedocs.io/en/latest/reference.html#stan.fit.Fit>`_.
+        A [stan.fit.Fit
+        object](https://pystan.readthedocs.io/en/latest/reference.html#stan.fit.Fit).
     """
     # For each instance, get the sorting permutation of the algorithms (i.e. the
     # indexes of the algorithms in the order such that their metrics are sorted

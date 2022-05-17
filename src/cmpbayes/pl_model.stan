@@ -35,6 +35,8 @@ transformed parameters{
   loglik=0;
   for (s in 1:n_instances){
     // We can cut the last one because the next loop won't do anything then.
+    // Note that this optimization results in rest not being zero in the end
+    // (and rest is part of the final result, which may be confusing for users).
     for (i in 1:(n_algorithms-1)){
       rest=0;
       for (j in i:n_algorithms){
