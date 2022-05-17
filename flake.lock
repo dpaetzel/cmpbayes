@@ -1,38 +1,5 @@
 {
   "nodes": {
-    "kerasTunerSrc": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1636132191,
-        "narHash": "sha256-DOMAz7Yjb3vfKYqjnhJZYhV1hrTgeOzkHc48XHUNrmM=",
-        "owner": "keras-team",
-        "repo": "keras-tuner",
-        "rev": "4146d8e3182df6c4ce928e853a7b3c977ab00034",
-        "type": "github"
-      },
-      "original": {
-        "owner": "keras-team",
-        "ref": "1.1.0",
-        "repo": "keras-tuner",
-        "type": "github"
-      }
-    },
-    "ktLegacySrc": {
-      "flake": false,
-      "locked": {
-        "lastModified": 1628631947,
-        "narHash": "sha256-BYe9boMpoGdFuhEfhXRytxmLq89hjejofDTugoYi0kY=",
-        "owner": "haifeng-jin",
-        "repo": "kt-legacy",
-        "rev": "15686b5e2d25b7094134d68956b2edce5dffa7a0",
-        "type": "github"
-      },
-      "original": {
-        "owner": "haifeng-jin",
-        "repo": "kt-legacy",
-        "type": "github"
-      }
-    },
     "nixpkgs": {
       "locked": {
         "lastModified": 1645433236,
@@ -49,29 +16,9 @@
         "type": "github"
       }
     },
-    "overlays": {
-      "inputs": {
-        "kerasTunerSrc": "kerasTunerSrc",
-        "ktLegacySrc": "ktLegacySrc"
-      },
-      "locked": {
-        "lastModified": 1647347991,
-        "narHash": "sha256-UYO60L03uNiEvb3uGc8AeCk2if6xObz/mURbviEbtJ4=",
-        "owner": "dpaetzel",
-        "repo": "overlays",
-        "rev": "0ee7f9e874d1679c4303759968887ca80571b257",
-        "type": "github"
-      },
-      "original": {
-        "owner": "dpaetzel",
-        "repo": "overlays",
-        "type": "github"
-      }
-    },
     "root": {
       "inputs": {
-        "nixpkgs": "nixpkgs",
-        "overlays": "overlays"
+        "nixpkgs": "nixpkgs"
       }
     }
   },

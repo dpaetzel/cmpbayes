@@ -7,12 +7,10 @@
   outputs = { self, nixpkgs }:
     let
       system = "x86_64-linux";
-      pkgs = import nixpkgs {
-        inherit system;
-      };
+      pkgs = import nixpkgs { inherit system; };
       python = pkgs.python39;
-    in {
-      defaultPackage.x86_64-linux = python.pkgs.buildPythonPackage rec {
+    in rec {
+      defaultPackage.${system} = python.pkgs.buildPythonPackage rec {
         pname = "cmpbayes";
         version = "0.0.2-beta";
 
@@ -29,10 +27,12 @@
         '';
 
         propagatedBuildInputs = with python.pkgs; [
-            arviz
-            matplotlib
-            numpy
-            pandas
+          arviz
+          click
+          matplotlib
+          numpy
+          pandas
+          typing-extensions
         ];
 
         meta = with pkgs.lib; {
@@ -47,12 +47,9 @@
         # We use ugly venvShellHook here because packaging pystan/httpstan is
         # not entirely straightforward.
         buildInputs = with pkgs;
-          with python.pkgs; [
-            python
-            venvShellHook
-            numpy
-            pandas
-          ];
+          with python.pkgs;
+          [ ipython python venvShellHook ]
+          ++ defaultPackage.${system}.propagatedBuildInputs;
 
         venvDir = "./_venv";
 
