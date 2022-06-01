@@ -20,8 +20,8 @@ def fit_calvo(metrics, higher_better=True, **kwargs):
     Builds a Bayesian model of the ranking of the algorithms that produced the
     provided data.
 
-    The underlying model is the described in the 2018 article by Calvo et al.,
-    Bayesian Inference for Algorithm Ranking Analysis.
+    The underlying model is the one described in the 2018 article by Calvo et
+    al., Bayesian Inference for Algorithm Ranking Analysis.
 
     Parameters
     ----------
@@ -92,11 +92,11 @@ def fit_kruschke(y1, y2, **kwargs):
 
     Parameters
     ----------
-    y1 : array of shape (n_instances, n_algorithms)
+    y1 : array of shape (n_tasks,)
          Independently (i.e. no cross-validation etc.) generated performance
          statistics values (e.g. MSE, accuracy, maximum fitness, average RL
          return, …) of the first method to compare.
-    y2 : array of shape (n_instances, n_algorithms)
+    y2 : array of shape (n_tasks,)
          Independently (i.e. no cross-validation etc.) generated performance
          statistics values (e.g. MSE, accuracy, maximum fitness, average RL
          return, …) of the second method to compare.
