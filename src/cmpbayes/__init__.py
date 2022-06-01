@@ -15,74 +15,134 @@ pl_stan_filename = resource_filename(__name__, "pl_model.stan")
 kruschke_filename = resource_filename(__name__, "kruschke.stan")
 
 
-def fit_calvo(metrics, higher_better=True, **kwargs):
+class Calvo:
     """
-    Builds a Bayesian model of the ranking of the algorithms that produced the
-    provided data.
+    A Bayesian model of the ranking of the algorithms that produced the provided
+    data.
 
-    The underlying model is the one described in the 2018 article by Calvo et
-    al., Bayesian Inference for Algorithm Ranking Analysis.
+    The underlying model is described by two articles:
 
-    Parameters
-    ----------
-    metrics : array of shape (n_instances, n_algorithms)
-        Each row corresponds to one problem instance (e.g. one optimization
-        problem, one learning task, …). Columns correspond to algorithms.
-        Entries are performance statistics values (e.g. MSE, accuracy, maximum
-        fitness, average RL return, …).
-    higher_better: bool
-        Whether higher metrics values are better than lower ones. This is e.g.
-        the case for accuracy on classification tasks but not for MSE on
-        regression tasks. This is required in order to be able to correctly
-        compute the algorithm ranking.
-    kwargs : kwargs
-        Are passed through to `stan.model.Model.sample`. You may set
-        `num_samples`, `num_warmup` and many more options here. See the
-        documentation of
-        [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
-        as well as the [code of the sampler currently
-        used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
-
-    Returns
-    -------
-    object
-        A [stan.fit.Fit
-        object](https://pystan.readthedocs.io/en/latest/reference.html#stan.fit.Fit).
+    - the 2018 article by Calvo et al., Bayesian Inference for Algorithm Ranking
+      Analysis, and
+    - the 2020 article by Calvo et al., Bayesian performance analysis for
+      black-box optimization benchmarking.
     """
-    # For each instance, get the sorting permutation of the algorithms (i.e. the
-    # indexes of the algorithms in the order such that their metrics are sorted
-    # ascendingly).
-    orders = np.argsort(metrics, axis=1)
 
-    # np.argsort sorts ascendingly, if higher is better we thus want to reverse the
-    # ordering such that the best stands at the front.
-    if higher_better:
-        orders = np.flip(orders, axis=1)
+    def __init__(self, metrics, higher_better=True):
+        """
+        Parameters
+        ----------
+        metrics : array of shape (n_instances, n_algorithms)
+            Each row corresponds to one problem instance (e.g. one optimization
+            problem, one learning task, …). Columns correspond to algorithms.
+            Entries are performance statistics values (e.g. MSE, accuracy, maximum
+            fitness, average RL return, …).
+        higher_better: bool
+            Whether higher metrics values are better than lower ones. This is e.g.
+            the case for accuracy on classification tasks but not for MSE on
+            regression tasks. This is required in order to be able to correctly
+            compute the algorithm ranking.
+        """
+        self.metrics = metrics
+        self.higher_better = higher_better
 
-    # Stan starts indexes from 1 and each element of orders is an index (i.e. an
-    # algorithm number).
-    orders = orders + 1
+    def fit(self, **kwargs):
+        """
+        Builds the model and samples from its posterior.
 
-    # Read the Stan model from disk.
-    with open(pl_stan_filename) as f:
-        program_code = f.read()
+        Parameters
+        ----------
+        kwargs : kwargs
+            Are passed through to `stan.model.Model.sample`. You may set
+            `num_samples`, `num_warmup` and many more options here. See the
+            documentation of
+            [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
+            as well as the [code of the sampler currently
+            used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
 
-    n_instances, n_algorithms = metrics.shape
+        Returns
+        -------
+        object
+           The fitted model (`self`).
+        """
+        # For each instance, get the sorting permutation of the algorithms (i.e. the
+        # indexes of the algorithms in the order such that their metrics are sorted
+        # ascendingly).
+        orders = np.argsort(self.metrics, axis=1)
 
-    data = {
-        "n_instances": n_instances,
-        "n_algorithms": n_algorithms,
-        "orders": orders,
-        "weights_instances": np.ones(n_instances),
-        # Uniform prior.
-        "alpha": np.ones(n_algorithms),
-    }
+        # np.argsort sorts ascendingly, if higher is better we thus want to reverse the
+        # ordering such that the best stands at the front.
+        if self.higher_better:
+            orders = np.flip(orders, axis=1)
 
-    model: stan.model.Model = stan.build(program_code, data=data)
+        # Stan starts indexes from 1 and each element of orders is an index (i.e. an
+        # algorithm number).
+        orders = orders + 1
 
-    fit: stan.fit.Fit = model.sample(**kwargs)
+        # Read the Stan model from disk.
+        with open(pl_stan_filename) as f:
+            program_code = f.read()
 
-    return fit
+        n_instances, n_algorithms = self.metrics.shape
+
+        data = {
+            "n_instances": n_instances,
+            "n_algorithms": n_algorithms,
+            "orders": orders,
+            "weights_instances": np.ones(n_instances),
+            # Uniform prior.
+            "alpha": np.ones(n_algorithms),
+        }
+
+        self.model_: stan.model.Model = stan.build(program_code, data=data)
+
+        self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
+
+        return self
+
+    def _analyze(self, algorithm_names):
+        """
+        Perform a rudimentary analysis of the built model.
+
+        Mainly meant to be a starting point for analyzing the models built as
+        well as showcase a few things that can be done with the result,
+        especially when combining this library with [the arviz
+        library](https://python.arviz.org/en/latest/).
+
+        Parameters
+        ----------
+        algorithm_names : list of str
+            Labels to use in the graphs and tables generated (make sure that
+            they are in the same order as the data provided to `fit`).
+
+        Warnings
+        --------
+        This is explicitely *not* meant as a best practice of how to analyze the
+        results and may change any time. Read up on how to interpret models and
+        especially on how to work out whether sampling even worked as intended.
+        """
+        df = self.fit_.to_frame()
+        weights = df.filter(regex="^weights.*$")
+        weights.columns = pd.Index(algorithm_names, name="p(_ ranked first)")
+        print(weights.mean())
+        print(weights.quantile([0.05, 0.95]))
+
+        # TODO Add ppd example, see
+        # https://mc-stan.org/docs/2_24/stan-users-guide/simulating-from-the-posterior-predictive-distribution.html
+        # as well as posterior_predictive="weights_hat" option to from_pystan
+
+        azd = az.from_pystan(
+            posterior=self.fit_,
+            posterior_model=self.model_,
+            observed_data=["orders"],
+            log_likelihood={"weights": "loglik"},
+        )
+        summary = az.summary(azd)
+        print(summary)
+        az.plot_forest(azd, var_names=["~loglik", "~rest"])
+        az.plot_posterior(azd)
+        az.plot_trace(azd)
+        plt.show()
 
 
 def fit_kruschke(y1, y2, **kwargs):
@@ -135,37 +195,8 @@ def test_calvo():
 
     metrics = rng.normal(loc=100, scale=40, size=(n_instances, n_algorithms))
 
-    fit = fit_calvo(metrics, higher_better=True)
-
-    df = fit.to_frame()
-
-    weights = df.filter(regex="^weights.*$")
-    weights.columns = pd.Index(algorithm_names, name="p(_ ranked first)")
-
-    print(weights.mean())
-    print(weights.quantile([0.05, 0.95]))
-
-    # TODO Add ppd example, see
-    # https://mc-stan.org/docs/2_24/stan-users-guide/simulating-from-the-posterior-predictive-distribution.html
-
-    # See https://oriolabril.github.io/arviz/api/generated/arviz.from_pystan.html .
-    azd = az.from_pystan(
-        posterior=fit,
-        # posterior_predictive="weights_hat",
-        observed_data=["orders"],
-        log_likelihood={"weights": "loglik"},
-        # coords=…,
-        # dims=…,
-    )
-
-    summary = az.summary(azd)
-
-    print(summary)
-
-    az.plot_forest(azd, var_names=["~loglik", "~rest"])
-    az.plot_posterior(azd)
-    az.plot_trace(azd)
-    plt.show()
+    model = Calvo(metrics, higher_better=True).fit()
+    model._analyze(algorithm_names)
 
 
 def test_kruschke():
