@@ -12,7 +12,7 @@
     in rec {
       defaultPackage.${system} = python.pkgs.buildPythonPackage rec {
         pname = "cmpbayes";
-        version = "0.0.2-beta";
+        version = "1.0.0-beta";
 
         src = self;
 
