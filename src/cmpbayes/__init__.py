@@ -100,11 +100,11 @@ class Calvo:
 
         return self
 
-    def _analyze(self, algorithm_names):
+    def _analyse(self, algorithm_names):
         """
         Perform a rudimentary analysis of the built model.
 
-        Mainly meant to be a starting point for analyzing the models built as
+        Mainly meant to be a starting point for analysing the models built as
         well as showcase a few things that can be done with the result,
         especially when combining this library with [the arviz
         library](https://python.arviz.org/en/latest/).
@@ -117,7 +117,7 @@ class Calvo:
 
         Warnings
         --------
-        This is explicitely *not* meant as a best practice of how to analyze the
+        This is explicitely *not* meant as a best practice of how to analyse the
         results and may change any time. Read up on how to interpret models and
         especially on how to work out whether sampling even worked as intended.
         """
@@ -147,10 +147,20 @@ class Calvo:
 
 class Kruschke:
     """
-    A model that can be used to compare the two samples (e.g. their difference).
+    A Bayesian model that can be used to make statistical statements about the
+    difference between two algorithms when run multiple times *independently* on
+    a task.
 
     The underlying model is described in the 2013 article by Kruschke, *Bayesian
     Estimation Supersedes the t Test*.
+
+    Notes
+    -----
+    This model assumes the data points to be paired (i.e. the first data point
+    of the first algorithm corresponds to the first data point of the second
+    algorithm) as well as that the data points for each algorithm are be i.i.d.
+    This entails that the model does *not* take into account the correlation
+    induced by cross-validation or similar methods.
     """
 
     def __init__(self, y1, y2):
@@ -210,18 +220,18 @@ class Kruschke:
         return self
 
     # TODO Add rope here
-    def _analyze(self):
+    def _analyse(self):
         """
         Perform a rudimentary analysis of the built model.
 
-        Mainly meant to be a starting point for analyzing the models built as
+        Mainly meant to be a starting point for analysing the models built as
         well as showcase a few things that can be done with the result,
         especially when combining this library with [the arviz
         library](https://python.arviz.org/en/latest/).
 
         Warnings
         --------
-        This is explicitely *not* meant as a best practice of how to analyze the
+        This is explicitely *not* meant as a best practice of how to analyse the
         results and may change any time. Read up on how to interpret models and
         especially on how to work out whether sampling even worked as intended.
         """
@@ -263,7 +273,7 @@ def _test_calvo():
     metrics = rng.normal(loc=100, scale=40, size=(n_instances, n_algorithms))
 
     model = Calvo(metrics, higher_better=True).fit()
-    model._analyze(algorithm_names)
+    model._analyse(algorithm_names)
 
 
 def _test_kruschke():
@@ -276,7 +286,7 @@ def _test_kruschke():
     y2 = rng.normal(loc=103, scale=10, size=(n_runs))
 
     model = Kruschke(y1, y2).fit()
-    model._analyze()
+    model._analyse()
 
 
 tests = {
