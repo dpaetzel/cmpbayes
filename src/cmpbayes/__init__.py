@@ -145,46 +145,113 @@ class Calvo:
         plt.show()
 
 
-def fit_kruschke(y1, y2, **kwargs):
+class Kruschke:
     """
-    Compares the two samples using the model described in the 2013 article by
-    Kruschke, *Bayesian Estimation Supersedes the t Test*.
+    A model that can be used to compare the two samples (e.g. their difference).
 
-    Parameters
-    ----------
-    y1 : array of shape (n_tasks,)
-         Independently (i.e. no cross-validation etc.) generated performance
-         statistics values (e.g. MSE, accuracy, maximum fitness, average RL
-         return, …) of the first method to compare.
-    y2 : array of shape (n_tasks,)
-         Independently (i.e. no cross-validation etc.) generated performance
-         statistics values (e.g. MSE, accuracy, maximum fitness, average RL
-         return, …) of the second method to compare.
-    kwargs : kwargs
-         Same as `kwargs` argument of [fit_calvo][].
-
-    Returns
-    -------
-    object
-        A [stan.fit.Fit
-        object](https://pystan.readthedocs.io/en/latest/reference.html#stan.fit.Fit).
+    The underlying model is described in the 2013 article by Kruschke, *Bayesian
+    Estimation Supersedes the t Test*.
     """
-    # Read the Stan model from disk.
-    with open(kruschke_filename) as f:
-        program_code = f.read()
 
-    n_runs, = y1.shape
+    def __init__(self, y1, y2):
+        """
+        Parameters
+        ----------
+        y1 : array of shape (n_tasks,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the first method to compare.
+        y2 : array of shape (n_tasks,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the second method to compare.
 
-    data = dict(n_runs=n_runs, y1=y1, y2=y2)
+        Notes
+        -----
+        As of now, this expects arrays (in particular, `pandas.DataFrame` or
+        `pandas.Series` are not supported as inputs—use their `to_numpy()`
+        method before passing them here).
+        """
+        self.y1 = y1
+        self.y2 = y2
 
-    model: stan.model.Model = stan.build(program_code, data=data)
+    def fit(self, **kwargs):
+        """
+        Compares the two samples using the model described in the 2013 article by
+        Kruschke, *Bayesian Estimation Supersedes the t Test*.
 
-    fit: stan.fit.Fit = model.sample(**kwargs)
+        Parameters
+        ----------
+        kwargs : kwargs
+            Are passed through to `stan.model.Model.sample`. You may set
+            `num_samples`, `num_warmup` and many more options here. See the
+            documentation of
+            [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
+            as well as the [code of the sampler currently
+            used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
 
-    return model, fit
+        Returns
+        -------
+        object
+           The fitted model (`self`).
+        """
+        # Read the Stan model from disk.
+        with open(kruschke_filename) as f:
+            program_code = f.read()
+
+        n_runs, = self.y1.shape
+
+        data = dict(n_runs=n_runs, y1=self.y1, y2=self.y2)
+
+        self.model_: stan.model.Model = stan.build(program_code, data=data)
+
+        self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
+
+        return self
+
+    # TODO Add rope here
+    def _analyze(self):
+        """
+        Perform a rudimentary analysis of the built model.
+
+        Mainly meant to be a starting point for analyzing the models built as
+        well as showcase a few things that can be done with the result,
+        especially when combining this library with [the arviz
+        library](https://python.arviz.org/en/latest/).
+
+        Warnings
+        --------
+        This is explicitely *not* meant as a best practice of how to analyze the
+        results and may change any time. Read up on how to interpret models and
+        especially on how to work out whether sampling even worked as intended.
+        """
+        # See https://oriolabril.github.io/arviz/api/generated/arviz.from_pystan.html .
+        azd = az.from_pystan(
+            posterior=self.fit_,
+            posterior_model=self.model_,
+            observed_data=["y1", "y2"],
+            posterior_predictive=["y1_rep", "y2_rep"],
+        )
+
+        var_names = ["~y2_rep", "~y1_rep"]
+
+        summary = az.summary(azd, filter_vars="like", var_names=var_names)
+        print(summary)
+
+        az.plot_ppc(azd,
+                    kind="kde",
+                    data_pairs={
+                        "y1": "y1_rep",
+                        "y2": "y2_rep"
+                    },
+                    num_pp_samples=10)
+        az.plot_posterior(azd, filter_vars="like", var_names=var_names)
+        az.plot_trace(azd, filter_vars="like", var_names=var_names)
+        az.plot_density(azd.posterior.mu2 - azd.posterior.mu1, hdi_markers="v")
+        plt.show()
 
 
-def test_calvo():
+def _test_calvo():
     seed = 2
     rng = np.random.default_rng(seed)
 
@@ -199,7 +266,7 @@ def test_calvo():
     model._analyze(algorithm_names)
 
 
-def test_kruschke():
+def _test_kruschke():
     seed = 3
     rng = np.random.default_rng(seed)
 
@@ -208,37 +275,13 @@ def test_kruschke():
     y1 = rng.normal(loc=100, scale=20, size=(n_runs))
     y2 = rng.normal(loc=103, scale=10, size=(n_runs))
 
-    model, fit = fit_kruschke(y1, y2)
-
-    # See https://oriolabril.github.io/arviz/api/generated/arviz.from_pystan.html .
-    azd = az.from_pystan(
-        posterior=fit,
-        posterior_model=model,
-        observed_data=["y1", "y2"],
-        posterior_predictive=["y1_rep", "y2_rep"],
-    )
-
-    var_names = ["~y2_rep", "~y1_rep"]
-
-    summary = az.summary(azd, filter_vars="like", var_names=var_names)
-    print(summary)
-
-    az.plot_ppc(azd,
-                kind="kde",
-                data_pairs={
-                    "y1": "y1_rep",
-                    "y2": "y2_rep"
-                },
-                num_pp_samples=10)
-    az.plot_posterior(azd, filter_vars="like", var_names=var_names)
-    az.plot_trace(azd, filter_vars="like", var_names=var_names)
-    az.plot_density(azd.posterior.mu2 - azd.posterior.mu1, hdi_markers="v")
-    plt.show()
+    model = Kruschke(y1, y2).fit()
+    model._analyze()
 
 
 tests = {
-    "kruschke": test_kruschke,
-    "calvo": test_calvo,
+    "kruschke": _test_kruschke,
+    "calvo": _test_calvo,
 }
 
 
