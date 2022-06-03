@@ -28,7 +28,7 @@ class Calvo:
       black-box optimization benchmarking.
     """
 
-    def __init__(self, metrics, higher_better=True):
+    def __init__(self, metrics, higher_better=True, algorithm_labels=None):
         """
         Parameters
         ----------
@@ -37,14 +37,19 @@ class Calvo:
             problem, one learning task, …). Columns correspond to algorithms.
             Entries are performance statistics values (e.g. MSE, accuracy, maximum
             fitness, average RL return, …).
-        higher_better: bool
+        higher_better : bool
             Whether higher metrics values are better than lower ones. This is e.g.
             the case for accuracy on classification tasks but not for MSE on
             regression tasks. This is required in order to be able to correctly
             compute the algorithm ranking.
+        algorithm_labels : list of str or None
+            Labels for the algorithms being compared (e.g. their names) to be
+            used in the `arviz.InferenceData` object created as the `data_`
+            attribute. If `None`, they are numbered.
         """
         self.metrics = metrics
         self.higher_better = higher_better
+        self.algorithm_labels = algorithm_labels
 
     def fit(self, **kwargs):
         """
@@ -98,9 +103,29 @@ class Calvo:
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
+        self.data_: arviz.InferenceData = az.from_pystan(
+            posterior=self.fit_,
+            # posterior_predictive
+            # predictions
+            # prior
+            # prior_predictive
+            observed_data=["orders"],
+            # constant_data
+            # predictions_constant_data
+            # TODO log_likelihood
+            coords={
+                "algorithm_labels":
+                np.arange(n_algorithms)
+                if self.algorithm_labels is None else self.algorithm_labels
+            },
+            dims={"weights": ["algorithm_labels"]},
+            posterior_model=self.model_,
+            # prior_model
+        )
+
         return self
 
-    def _analyse(self, algorithm_names):
+    def _analyse(self):
         """
         Perform a rudimentary analysis of the built model.
 
@@ -108,12 +133,6 @@ class Calvo:
         well as showcase a few things that can be done with the result,
         especially when combining this library with [the arviz
         library](https://python.arviz.org/en/latest/).
-
-        Parameters
-        ----------
-        algorithm_names : list of str
-            Labels to use in the graphs and tables generated (make sure that
-            they are in the same order as the data provided to `fit`).
 
         Warnings
         --------
@@ -123,7 +142,6 @@ class Calvo:
         """
         df = self.fit_.to_frame()
         weights = df.filter(regex="^weights.*$")
-        weights.columns = pd.Index(algorithm_names, name="p(_ ranked first)")
         print(weights.mean())
         print(weights.quantile([0.05, 0.95]))
 
@@ -131,17 +149,11 @@ class Calvo:
         # https://mc-stan.org/docs/2_24/stan-users-guide/simulating-from-the-posterior-predictive-distribution.html
         # as well as posterior_predictive="weights_hat" option to from_pystan
 
-        azd = az.from_pystan(
-            posterior=self.fit_,
-            posterior_model=self.model_,
-            observed_data=["orders"],
-            log_likelihood={"weights": "loglik"},
-        )
-        summary = az.summary(azd)
+        summary = az.summary(self.data_)
         print(summary)
-        az.plot_forest(azd, var_names=["~loglik", "~rest"])
-        az.plot_posterior(azd)
-        az.plot_trace(azd)
+        az.plot_forest(self.data_, var_names=["~loglik", "~rest"])
+        az.plot_posterior(self.data_)
+        az.plot_trace(self.data_)
         plt.show()
 
 
@@ -217,6 +229,22 @@ class Kruschke:
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
+        self.data_: arviz.InferenceData = az.from_pystan(
+            posterior=self.fit_,
+            posterior_predictive=["y1_rep", "y2_rep"],
+            # predictions
+            # prior
+            # prior_predictive
+            observed_data=["y1", "y2"],
+            # constant_data
+            # predictions_constant_data
+            # log_likelihood
+            # coords
+            # dims
+            posterior_model=self.model_,
+            # prior_model
+        )
+
         return self
 
     # TODO Add rope here
@@ -267,13 +295,17 @@ def _test_calvo():
 
     n_instances = 1000
 
-    algorithm_names = ["a", "b", "c", "d", "e", "f", "g", "h"]
-    n_algorithms = len(algorithm_names)
+    algorithm_labels = ["a", "b", "c", "d", "e", "f", "g", "h"]
+    n_algorithms = len(algorithm_labels)
 
     metrics = rng.normal(loc=100, scale=40, size=(n_instances, n_algorithms))
 
-    model = Calvo(metrics, higher_better=True).fit()
-    model._analyse(algorithm_names)
+    model = Calvo(metrics,
+                  higher_better=True,
+                  algorithm_labels=algorithm_labels).fit()
+    # import IPython
+    # IPython.embed()
+    model._analyse()
 
 
 def _test_kruschke():
