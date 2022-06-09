@@ -15,6 +15,12 @@ pl_stan_filename = resource_filename(__name__, "pl_model.stan")
 kruschke_filename = resource_filename(__name__, "kruschke.stan")
 
 
+def _generate_random_seed():
+    return int(np.random.default_rng().integers(low=0,
+                                                high=2**31,
+                                                endpoint=False))
+
+
 class Calvo:
     """
     A Bayesian model of the ranking of the algorithms that produced the provided
@@ -51,12 +57,15 @@ class Calvo:
         self.higher_better = higher_better
         self.algorithm_labels = algorithm_labels
 
-    def fit(self, **kwargs):
+    def fit(self, random_seed=None, **kwargs):
         """
         Builds the model and samples from its posterior.
 
         Parameters
         ----------
+        random_seed : non-negative int < 2**31 - 1
+            Random seed to be used for sampling. See
+            [`stan.build`](https://pystan.readthedocs.io/en/latest/reference.html).
         kwargs : kwargs
             Are passed through to `stan.model.Model.sample`. You may set
             `num_samples`, `num_warmup` and many more options here. See the
@@ -99,7 +108,12 @@ class Calvo:
             "alpha": np.ones(n_algorithms),
         }
 
-        self.model_: stan.model.Model = stan.build(program_code, data=data)
+        if random_seed is None:
+            random_seed = _generate_random_seed()
+
+        self.model_: stan.model.Model = stan.build(program_code,
+                                                   data=data,
+                                                   random_seed=random_seed)
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
@@ -197,13 +211,16 @@ class Kruschke:
         self.y1 = y1
         self.y2 = y2
 
-    def fit(self, **kwargs):
+    def fit(self, random_seed=None, **kwargs):
         """
         Compares the two samples using the model described in the 2013 article by
         Kruschke, *Bayesian Estimation Supersedes the t Test*.
 
         Parameters
         ----------
+        random_seed : non-negative int < 2**31 - 1
+            Random seed to be used for sampling. See
+            [`stan.build`](https://pystan.readthedocs.io/en/latest/reference.html).
         kwargs : kwargs
             Are passed through to `stan.model.Model.sample`. You may set
             `num_samples`, `num_warmup` and many more options here. See the
@@ -225,7 +242,12 @@ class Kruschke:
 
         data = dict(n_runs=n_runs, y1=self.y1, y2=self.y2)
 
-        self.model_: stan.model.Model = stan.build(program_code, data=data)
+        if random_seed is None:
+            random_seed = _generate_random_seed()
+
+        self.model_: stan.model.Model = stan.build(program_code,
+                                                   data=data,
+                                                   random_seed=random_seed)
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
