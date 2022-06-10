@@ -61,9 +61,11 @@
           }:$LD_LIBRARY_PATH";
         '';
 
+        # Using httpstan==4.7.2 (the default as of 2022-06-10) leads to a
+        # missing symbols error on NixOS. 4.7.1 works, however, so we use that.
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
-          pip install pystan==3.4.0
+          pip install httpstan==4.7.1 pystan==3.4.0
         '';
 
       };
