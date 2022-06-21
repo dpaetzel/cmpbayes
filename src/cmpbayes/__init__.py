@@ -207,6 +207,9 @@ class Kruschke:
         As of now, this expects arrays (in particular, `pandas.DataFrame` or
         `pandas.Series` are not supported as inputs—use their `to_numpy()`
         method before passing them here).
+
+        The arrays may have differing lengths as the model does not assume the
+        samples to be paired.
         """
         self.y1 = y1
         self.y2 = y2
@@ -238,9 +241,10 @@ class Kruschke:
         with open(kruschke_filename) as f:
             program_code = f.read()
 
-        n_runs, = self.y1.shape
+        n_runs1, = self.y1.shape
+        n_runs2, = self.y2.shape
 
-        data = dict(n_runs=n_runs, y1=self.y1, y2=self.y2)
+        data = dict(n_runs1=n_runs1, n_runs2=n_runs2, y1=self.y1, y2=self.y2)
 
         if random_seed is None:
             random_seed = _generate_random_seed()

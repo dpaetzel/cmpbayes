@@ -3,20 +3,23 @@
  */
 
 data {
-  // Number of runs per data sets (not cross-validation but independent runs).
-  int<lower=1> n_runs;
+  // Number of runs in the first data set.
+  int<lower=1> n_runs1;
+
+  // Number of runs in the second data set.
+  int<lower=1> n_runs2;
 
   // Units for the first method to be compared.
-  vector[n_runs] y1;
+  vector[n_runs1] y1;
 
   // Units for the second method to be compared.
-  vector[n_runs] y2;
+  vector[n_runs2] y2;
 }
 
 
 transformed data {
   // The “pooled data”.
-  vector[2 * n_runs] y = append_row(y1, y2);
+  vector[n_runs1 + n_runs2] y = append_row(y1, y2);
 
   // “To keep the prior distribution broad relative to the arbitrary scale of
   // the data, I have set the standard deviation S of the prior on mu to 1,000
@@ -79,8 +82,8 @@ generated quantities {
   real sigma2_minus_sigma1 = sigma2 - sigma1;
 
   // For posterior predictive checking.
-  array [n_runs] real y1_rep =
-    student_t_rng(nu, rep_array(mu1, n_runs), sigma1);
-  array [n_runs] real y2_rep =
-    student_t_rng(nu, rep_array(mu2, n_runs), sigma2);
+  array [n_runs1] real y1_rep =
+    student_t_rng(nu, rep_array(mu1, n_runs1), sigma1);
+  array [n_runs2] real y2_rep =
+    student_t_rng(nu, rep_array(mu2, n_runs2), sigma2);
 }
