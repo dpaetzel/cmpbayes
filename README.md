@@ -19,11 +19,9 @@ For now, cmpbayes provides two models:
   described in the 2013 article by Kruschke, *Bayesian Estimation Supersedes the
   t Test*.
 
-  Note that this model assumes the data points to be paired (i.e. the first data
-  point of the first algorithm corresponds to the first data point of the second
-  algorithm) as well as that the data points for each algorithm are be i.i.d.
-  This entails that the model does *not* take into account the correlation
-  induced by cross-validation or similar methods.
+  Note that this model assumes that the data points for each algorithm are be
+  i.i.d.  This entails that the model does *not* take into account the
+  correlation induced by cross-validation or similar methods.
 
 
 *It is strongly recommended to read about the models and their assumptions in

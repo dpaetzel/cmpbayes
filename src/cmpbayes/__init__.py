@@ -182,9 +182,7 @@ class Kruschke:
 
     Notes
     -----
-    This model assumes the data points to be paired (i.e. the first data point
-    of the first algorithm corresponds to the first data point of the second
-    algorithm) as well as that the data points for each algorithm are be i.i.d.
+    This model assumes that the data points for each algorithm are be i.i.d.
     This entails that the model does *not* take into account the correlation
     induced by cross-validation or similar methods.
     """
@@ -193,11 +191,11 @@ class Kruschke:
         """
         Parameters
         ----------
-        y1 : array of shape (n_tasks,)
+        y1 : array of shape (n_tasks1,)
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the first method to compare.
-        y2 : array of shape (n_tasks,)
+        y2 : array of shape (n_tasks2,)
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the second method to compare.
