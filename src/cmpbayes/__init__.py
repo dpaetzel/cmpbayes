@@ -7,7 +7,7 @@ import arviz as az
 import click
 import matplotlib.pyplot as plt
 import numpy as np
-import pandas as pd
+import scipy.stats as st
 import stan
 from pkg_resources import resource_filename
 
@@ -289,7 +289,9 @@ class Kruschke:
         """
         var_names = ["~y2_rep", "~y1_rep"]
 
-        summary = az.summary(self.data_, filter_vars="like", var_names=var_names)
+        summary = az.summary(self.data_,
+                             filter_vars="like",
+                             var_names=var_names)
         print(summary)
 
         az.plot_ppc(self.data_,
@@ -301,8 +303,133 @@ class Kruschke:
                     num_pp_samples=10)
         az.plot_posterior(self.data_, filter_vars="like", var_names=var_names)
         az.plot_trace(self.data_, filter_vars="like", var_names=var_names)
-        az.plot_density(self.data_.posterior.mu2 - self.data_.posterior.mu1, hdi_markers="v")
+        az.plot_density(self.data_.posterior.mu2 - self.data_.posterior.mu1,
+                        hdi_markers="v")
         plt.show()
+
+
+class BayesCorrTTest:
+    """
+    A Bayesian model that can be used to make statistical statements about the
+    difference between two algorithms when run multiple times on a task using
+    cross validation.
+
+    The underlying model is introduced in the 2015 article by Corani and
+    Benavoli, *A Bayesian approach for comparing cross-validated algorithms on
+    multiple data sets* (in that publication it's called the *Bayesian t test
+    for correlated observations model* equation (8)).
+
+    Notes
+    -----
+    This model assumes that the data points for each algorithm are be i.i.d.
+    This entails that the model does *not* take into account the correlation
+    induced by cross-validation or similar methods.
+
+    This model does not use MCMC/Stan since the posterior is analytically
+    tractable. After fitting, its `model_` attribute is a `scipy.stats.t` object
+    which can be queried further. Note that, nevertheless, `data_` is an
+    `arviz.InferenceData` containing a sample of the specified size for a more
+    unified interface.
+    """
+
+    # TODO What about the case where the algorithm is run multiple times *and* CV is used?
+
+    def __init__(self, y1, y2, fraction_test):
+        """
+        Parameters
+        ----------
+        y1 : array of shape (n_tasks,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the first method to compare.
+        y2 : array of shape (n_tasks,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the second method to compare.
+        fraction_test : float
+            The fraction of the data used as test set (i.e. `n_test / (n_test +
+            n_train)` used to estimate the correlation introduced by CV, based
+            on (Nadeau and Bengio, 2003)).
+
+        Notes
+        -----
+        As of now, this expects arrays (in particular, `pandas.DataFrame` or
+        `pandas.Series` are not supported as inputs—use their `to_numpy()`
+        method before passing them here).
+        """
+        self.y1 = y1
+        self.y2 = y2
+        self.fraction_test = fraction_test
+
+    def fit(self, random_seed=None, num_samples=10000):
+        """
+        Compares the two samples using the *Bayesian t test for correlated
+        observations model* described in the 2015 article by Corani and
+        Benavoli, *A Bayesian approach for comparing cross-validated algorithms
+        on multiple data sets*.
+
+        Parameters
+        ----------
+        random_seed : non-negative int < 2**31 - 1
+            Random seed to be used for sampling. See
+            [`stan.build`](https://pystan.readthedocs.io/en/latest/reference.html).
+        num_samples : int
+            Number of samples to draw from the distribution.
+        kwargs : kwargs
+            Are passed through to `stan.model.Model.sample`. You may set
+            `num_samples`, `num_warmup` and many more options here. See the
+            documentation of
+            [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
+            as well as the [code of the sampler currently
+            used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
+
+        Returns
+        -------
+        object
+           The fitted model (`self`).
+        """
+        x = self.y2 - self.y1
+
+        x_over = x.mean()
+        n = len(x)
+        sigma_2_hat = ((x - x_over)**2).sum() / (n - 1)
+        rho = self.fraction_test
+
+        # Equation (8) from Corani and Benavoli, 2015, *A Bayesian approach for
+        # comparing cross-validated algorithms on multiple data sets*.
+        self.model_ = st.t(df=n - 1,
+                           loc=x_over,
+                           scale=(1 / n + rho / (1 - rho)) * sigma_2_hat)
+        # TODO Consider splitting num_samples into chains to prevent arviz warning
+        self.fit_: np.ndarray = self.model_.rvs(num_samples)
+        self.data_: arviz.InferenceData = az.convert_to_inference_data(
+            self.fit_)
+
+        return self
+
+    def _analyse(self):
+        summary = az.summary(self.data_)
+        print(summary)
+        az.plot_posterior(self.data_,
+                          rope={"posterior": {
+                              "rope": (-0.01, 0.01)
+                          }})
+        plt.show()
+
+
+def _test_bayescorrttest():
+    seed = 4
+
+    rng = np.random.default_rng(seed)
+
+    n_runs = 30
+
+    y1 = rng.normal(loc=100, scale=20, size=(n_runs))
+    y2 = rng.normal(loc=103, scale=10, size=(n_runs))
+
+    model = BayesCorrTTest(y1, y2, fraction_test=0.25).fit()
+
+    model._analyse()
 
 
 def _test_calvo():
@@ -338,8 +465,9 @@ def _test_kruschke():
 
 
 tests = {
-    "kruschke": _test_kruschke,
     "calvo": _test_calvo,
+    "kruschke": _test_kruschke,
+    "bayescorrttest": _test_bayescorrttest,
 }
 
 

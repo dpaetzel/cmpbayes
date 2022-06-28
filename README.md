@@ -22,6 +22,13 @@ For now, cmpbayes provides two models:
   Note that this model assumes that the data points for each algorithm are be
   i.i.d.  This entails that the model does *not* take into account the
   correlation induced by cross-validation or similar methods.
+- `BayesCorrTTest` builds and samples a Bayesian model that can be used to make
+  statistical statements about the difference between two algorithms when each
+  of those is evaluated using cross validation. It is based on the model described
+  in the 2015 article by Corani and Benavoli, *A Bayesian approach for comparing
+  cross-validated algorithms on multiple data sets* (in that publication it's
+  called the *Bayesian t test for correlated observations model* equation (8)).
+
 
 
 *It is strongly recommended to read about the models and their assumptions in

@@ -32,6 +32,7 @@
           matplotlib
           numpy
           pandas
+          scipy
           typing-extensions
         ];
 
