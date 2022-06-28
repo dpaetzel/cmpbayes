@@ -287,29 +287,21 @@ class Kruschke:
         results and may change any time. Read up on how to interpret models and
         especially on how to work out whether sampling even worked as intended.
         """
-        # See https://oriolabril.github.io/arviz/api/generated/arviz.from_pystan.html .
-        azd = az.from_pystan(
-            posterior=self.fit_,
-            posterior_model=self.model_,
-            observed_data=["y1", "y2"],
-            posterior_predictive=["y1_rep", "y2_rep"],
-        )
-
         var_names = ["~y2_rep", "~y1_rep"]
 
-        summary = az.summary(azd, filter_vars="like", var_names=var_names)
+        summary = az.summary(self.data_, filter_vars="like", var_names=var_names)
         print(summary)
 
-        az.plot_ppc(azd,
+        az.plot_ppc(self.data_,
                     kind="kde",
                     data_pairs={
                         "y1": "y1_rep",
                         "y2": "y2_rep"
                     },
                     num_pp_samples=10)
-        az.plot_posterior(azd, filter_vars="like", var_names=var_names)
-        az.plot_trace(azd, filter_vars="like", var_names=var_names)
-        az.plot_density(azd.posterior.mu2 - azd.posterior.mu1, hdi_markers="v")
+        az.plot_posterior(self.data_, filter_vars="like", var_names=var_names)
+        az.plot_trace(self.data_, filter_vars="like", var_names=var_names)
+        az.plot_density(self.data_.posterior.mu2 - self.data_.posterior.mu1, hdi_markers="v")
         plt.show()
 
 
