@@ -35,7 +35,9 @@ transformed data {
   // non-committal, expressed as a uniform distribution from a low value L, set
   // to one thousandth of the standard deviation of the pooled data, to a high
   // value H, set to one thousand times the standard deviation of the pooled
-  // data.”
+  // data.” However, note that generalized Student's t distributions do not have
+  // a standard deviation parameter but only a scale parameter. We'll assume
+  // that Kruschke means that.
   real L = 1.0 / 1000 * sd(y);
   real H = 1000 * sd(y);
 
@@ -48,7 +50,9 @@ parameters {
   real mu1;
   real mu2;
 
-  // Standard deviations of the metrics.
+  // Scale parameters of the metrics. Note that Kruschke calls these “standard
+  // deviation parameter” but generalized Student's t distributions do not have
+  // standard deviation parameters but only scale parameters.
   real<lower=L,upper=H> sigma1;
   real<lower=L,upper=H> sigma2;
 
