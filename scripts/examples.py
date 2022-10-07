@@ -1,5 +1,7 @@
-import click # type: ignore
-import numpy as np # type: ignore
+import click  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+import numpy as np  # type: ignore
+import scipy.stats as st  # type: ignore
 
 
 @click.group()
@@ -67,6 +69,25 @@ def kruschke():
     y2 = rng.normal(loc=103, scale=10, size=(n_runs))
 
     model = Kruschke(y1, y2).fit(random_seed=seed + 1)
+    model._analyse()
+
+
+@cli.command()
+def bimodnneg():
+    """
+    Run test scenario for the non-negative bimodal model.
+    """
+    from cmpbayes import BimodalNonNegative
+
+    from _timedata import y1, y2
+
+    iter_sampling = 5000
+    seed = 1
+    dir_csv = f"bimodnneg-iter_sampling={iter_sampling}-seed={seed}"
+
+    model = BimodalNonNegative(y1, y2).fit(iter_sampling=iter_sampling,
+                                           seed=seed)
+    model.fit_.save_csvfiles(dir_csv)
     model._analyse()
 
 

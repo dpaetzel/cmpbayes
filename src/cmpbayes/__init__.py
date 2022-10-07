@@ -3,7 +3,10 @@
 
 __version__ = '1.0.0-beta'
 
+import subprocess
+
 import arviz as az  # type: ignore
+import cmdstanpy  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np  # type: ignore
 import scipy.stats as st  # type: ignore
@@ -12,6 +15,28 @@ from pkg_resources import resource_filename  # type: ignore
 
 pl_stan_filename = resource_filename(__name__, "pl_model.stan")
 kruschke_filename = resource_filename(__name__, "kruschke.stan")
+bimodal_nonnegative_filename = resource_filename(__name__,
+                                                 "bimodal_nonnegative.stan")
+
+try:
+    # Note that we need what's in the opt directory under NixOS since only there
+    # is the makefile. Otherwise we get a "ValueError: Unable to compile Stan
+    # model file".
+    nixos_version = subprocess.run(
+        ['nixos-version'],
+        capture_output=True).stdout.decode().removesuffix('\n')
+    print(f"Running NixOS {nixos_version}, attempting to fix cmdstan_path.")
+    _stan_path = subprocess.run(["which", "stan"],
+                                capture_output=True).stdout.decode()
+    _cmdstan_path = _stan_path.replace("bin/stan\n", "opt/cmdstan")
+    cmdstanpy.set_cmdstan_path(_cmdstan_path)
+    print(f"Successfully set cmdstan_path to {_cmdstan_path}.")
+except FileNotFoundError:
+    print("Not running on NixOS, not applying automated NixOS fix. "
+          "If you see “ValueError: Unable to compile Stan model file”,"
+          "consider setting cmdstan path to the directory containing "
+          "cmdstan's makefile and bin directory using "
+          "cmdstanpy.set_cmdstan_path(…).")
 
 
 def _generate_random_seed():
@@ -306,6 +331,228 @@ class Kruschke:
         az.plot_trace(self.data_, filter_vars="like", var_names=var_names)
         az.plot_density(self.data_.posterior.mu2 - self.data_.posterior.mu1,
                         hdi_markers="v")
+        plt.show()
+
+
+class BimodalNonNegative:
+    """
+    A Bayesian model that can be used to make statistical statements about the
+    difference between two algorithms when run multiple times *independently* on
+    a task and the units are
+
+    - distributed bimodally
+    - nonzero
+
+    The model uses a simple mixture consisting of two Gamma distributions. For
+    the exact specifications (e.g. priors etc.), see the Stan file.
+
+    Originally created to model and compare the running times of algorithms
+    where a small subset of the runs was considerably faster than the large
+    majority.
+
+    Notes
+    -----
+    This model assumes that the data points for each algorithm are be i.i.d.
+    This entails that the model does *not* take into account the correlation
+    induced by cross-validation or similar methods.
+    """
+
+    def __init__(self, y1, y2):
+        """
+        Parameters
+        ----------
+        y1 : array of shape (n_tasks1,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the first method to compare.
+        y2 : array of shape (n_tasks2,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the second method to compare.
+
+        Notes
+        -----
+        As of now, this expects arrays (in particular, `pandas.DataFrame` or
+        `pandas.Series` are not supported as inputs—use their `to_numpy()`
+        method before passing them here).
+
+        The arrays may have differing lengths as the model does not assume the
+        samples to be paired.
+        """
+        self.y1 = y1
+        self.y2 = y2
+
+    def fit(self, **kwargs):
+        """
+        Compares the two samples using the model described in the 2013 article by
+        Kruschke, *Bayesian Estimation Supersedes the t Test*.
+
+        Parameters
+        ----------
+        random_seed : non-negative int < 2**31 - 1
+            Random seed to be used for sampling. See
+            [`stan.build`](https://pystan.readthedocs.io/en/latest/reference.html).
+        kwargs : kwargs
+            Are passed through to `stan.model.Model.sample`. You may set
+            `num_samples`, `num_warmup` and many more options here. See the
+            documentation of
+            [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
+            as well as the [code of the sampler currently
+            used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
+
+        Returns
+        -------
+        object
+           The fitted model (`self`).
+        """
+        n_runs1, = self.y1.shape
+        n_runs2, = self.y2.shape
+
+        data = dict(
+            n_runs1=n_runs1,
+            n_runs2=n_runs2,
+            y1=self.y1,
+            y2=self.y2,
+            # Assume the variances of the submodels to lie within [var_lower *
+            # Var(y), var_upper * Var(y)] for y from {y1, y2}.
+            var_lower=0.001,
+            var_upper=1.0,
+        )
+
+        self.model_ = cmdstanpy.CmdStanModel(
+            stan_file=bimodal_nonnegative_filename)
+
+        self.fit_ = self.model_.sample(data=data, **kwargs)
+
+        # TODO Fill InferenceData fully
+        self.data_: arviz.InferenceData = az.from_cmdstanpy(
+            posterior=self.fit_,
+            posterior_predictive=["y1_rep", "y2_rep"],
+            # predictions
+            # prior
+            # prior_predictive
+            observed_data={
+                "y1": data["y1"],
+                "y2": data["y2"]
+            },
+            # constant_data
+            # predictions_constant_data
+            # log_likelihood
+            # index_origin
+            # coords
+            # dims
+            # save_warmup
+        )
+
+        return self
+
+    def _analyse(self):
+        """
+        Perform a rudimentary analysis of the built model.
+
+        Mainly meant to be a starting point for analysing the models built as
+        well as showcase a few things that can be done with the result,
+        especially when combining this library with [the arviz
+        library](https://python.arviz.org/en/latest/).
+
+        Warnings
+        --------
+        This is explicitely *not* meant as a best practice of how to analyse the
+        results and may change any time. Read up on how to interpret models and
+        especially on how to work out whether sampling even worked as intended.
+        """
+        summary = az.summary(self.data_, filter_vars="like")
+        print(summary)
+
+        post = self.data_.posterior
+
+        # You could sample PPC yourself like this:
+        # post_pred = self.data_.posterior_predictive
+        # for i in range(10):
+        #     chain = np.random.choice(post_pred.chain)
+        #     draw = np.random.choice(post_pred.draw)
+        #     ax[0].scatter(post_pred.y1_rep[chain, draw],
+        #                   st.norm(loc=i + 1, scale=0.02).rvs(
+        #                       len(post_pred.y1_rep[chain, draw])),
+        #                   marker="+")
+
+        plt.style.use('tableau-colorblind10')
+
+        fig, ax = plt.subplots(2, layout="constrained", figsize=(10, 10))
+
+        ax[0].hist(self.y1,
+                   bins=100,
+                   density=True,
+                   label="Data",
+                   alpha=0.5,
+                   color="C0")
+        ax[1].hist(self.y2,
+                   bins=100,
+                   density=True,
+                   label="Data",
+                   alpha=0.5,
+                   color="C0")
+
+        az.plot_ppc(self.data_,
+                    observed=False,
+                    colors=["C1", "C2", "C3"],
+                    data_pairs={
+                        "y1": "y1_rep",
+                        "y2": "y2_rep"
+                    },
+                    num_pp_samples=10,
+                    ax=ax)
+
+        # Compute means over these dims.
+        dim = ["chain", "draw"]
+
+        weight1 = post.weight1.mean(dim=dim).to_numpy()
+        alpha1 = post.alpha1.mean(dim=dim).to_numpy()
+        beta1 = post.beta1.mean(dim=dim).to_numpy()
+        dist1 = st.gamma(alpha1, scale=1 / beta1)
+
+        X1 = np.linspace(np.min(dist1.ppf(0.01)), np.max(dist1.ppf(0.99)),
+                         1000)
+
+        y1 = np.sum(dist1.pdf(np.repeat(X1[:, np.newaxis], 2, axis=1))
+                    * np.array([weight1, 1 - weight1]),
+                    axis=1)
+        ax[0].plot(X1,
+                   y1,
+                   label="Posterior density based on parameter means",
+                   color="C4")
+        ax[0].vlines(alpha1 / beta1,
+                     0,
+                     ax[0].get_ylim()[1],
+                     linestyle="dotted",
+                     color="C5",
+                     label="Posterior component means")
+        ax[0].legend()
+
+        weight2 = post.weight2.mean(dim=dim).to_numpy()
+        alpha2 = post.alpha2.mean(dim=dim).to_numpy()
+        beta2 = post.beta2.mean(dim=dim).to_numpy()
+        dist2 = st.gamma(alpha2, scale=1 / beta2)
+
+        X2 = np.linspace(np.min(dist2.ppf(0.01)), np.max(dist2.ppf(0.99)),
+                         1000)
+
+        y2 = np.sum(dist2.pdf(np.repeat(X2[:, np.newaxis], 2, axis=1))
+                    * np.array([weight2, 1 - weight2]),
+                    axis=1)
+        ax[1].plot(X2,
+                   y2,
+                   label="Posterior density based on parameter means",
+                   color="C4")
+        ax[1].vlines(alpha2 / beta2,
+                     0,
+                     ax[1].get_ylim()[1],
+                     linestyle="dotted",
+                     color="C5",
+                     label="Posterior component means")
+
+        az.plot_posterior(self.data_)
+        az.plot_trace(self.data_)
         plt.show()
 
 
