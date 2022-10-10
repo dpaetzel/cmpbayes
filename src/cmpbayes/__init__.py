@@ -3,13 +3,12 @@
 
 __version__ = '1.0.0-beta'
 
-import arviz as az
-import click
-import matplotlib.pyplot as plt
-import numpy as np
-import scipy.stats as st
-import stan
-from pkg_resources import resource_filename
+import arviz as az  # type: ignore
+import matplotlib.pyplot as plt  # type: ignore
+import numpy as np  # type: ignore
+import scipy.stats as st  # type: ignore
+import stan  # type: ignore
+from pkg_resources import resource_filename  # type: ignore
 
 pl_stan_filename = resource_filename(__name__, "pl_model.stan")
 kruschke_filename = resource_filename(__name__, "kruschke.stan")
@@ -111,6 +110,7 @@ class Calvo:
         if random_seed is None:
             random_seed = _generate_random_seed()
 
+        # TODO Switch to cmdstanpy
         self.model_: stan.model.Model = stan.build(program_code,
                                                    data=data,
                                                    random_seed=random_seed)
@@ -247,6 +247,7 @@ class Kruschke:
         if random_seed is None:
             random_seed = _generate_random_seed()
 
+        # TODO Switch to cmdstanpy
         self.model_: stan.model.Model = stan.build(program_code,
                                                    data=data,
                                                    random_seed=random_seed)
@@ -415,76 +416,3 @@ class BayesCorrTTest:
                               "rope": (-0.01, 0.01)
                           }})
         plt.show()
-
-
-def _test_bayescorrttest():
-    seed = 4
-
-    rng = np.random.default_rng(seed)
-
-    n_runs = 30
-
-    y1 = rng.normal(loc=100, scale=20, size=(n_runs))
-    y2 = rng.normal(loc=103, scale=10, size=(n_runs))
-
-    model = BayesCorrTTest(y1, y2, fraction_test=0.25).fit()
-
-    model._analyse()
-
-
-def _test_calvo():
-    seed = 2
-    rng = np.random.default_rng(seed)
-
-    n_instances = 1000
-
-    algorithm_labels = ["a", "b", "c", "d", "e", "f", "g", "h"]
-    n_algorithms = len(algorithm_labels)
-
-    metrics = rng.normal(loc=100, scale=40, size=(n_instances, n_algorithms))
-
-    model = Calvo(metrics,
-                  higher_better=True,
-                  algorithm_labels=algorithm_labels).fit()
-    # import IPython
-    # IPython.embed()
-    model._analyse()
-
-
-def _test_kruschke():
-    seed = 3
-    rng = np.random.default_rng(seed)
-
-    n_runs = 30
-
-    y1 = rng.normal(loc=100, scale=20, size=(n_runs))
-    y2 = rng.normal(loc=103, scale=10, size=(n_runs))
-
-    model = Kruschke(y1, y2).fit()
-    model._analyse()
-
-
-tests = {
-    "calvo": _test_calvo,
-    "kruschke": _test_kruschke,
-    "bayescorrttest": _test_bayescorrttest,
-}
-
-
-@click.command()
-@click.argument("name")
-def test(name):
-    """
-    Run a very simple test scenario from randomly generated data for the model
-    NAME.
-    """
-    if name not in tests:
-        click.echo("Nope, that model doesn't exist or there are no tests for "
-                   "that model. Names of models with tests are: "
-                   f"{list(tests.keys())}")
-    else:
-        tests[name]()
-
-
-if __name__ == '__main__':
-    test()
