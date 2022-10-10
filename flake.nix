@@ -1,7 +1,10 @@
 {
   inputs = {
     nixpkgs.url =
-      "github:nixos/nixpkgs/7f9b6e2babf232412682c09e57ed666d8f84ac2d";
+      # "github:nixos/nixpkgs/7f9b6e2babf232412682c09e57ed666d8f84ac2d";
+      # Cmdstan 2.30.1
+      # "github:nixos/nixpkgs/7a2d461bf2e0561bde24b8dbd6ff7676a5a68459";
+      "github:NixOS/nixpkgs/0d68d7c857fe301d49cdcd56130e0beea4ecd5aa";
   };
 
   outputs = { self, nixpkgs }:
@@ -27,6 +30,8 @@
         '';
 
         propagatedBuildInputs = with python.pkgs; [
+          pkgs.cmdstan
+
           arviz
           numpy
           pandas
@@ -68,7 +73,7 @@
         # missing symbols error on NixOS. 4.7.1 works, however, so we use that.
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
-          pip install httpstan==4.7.1 pystan==3.4.0
+          pip install httpstan==4.7.1 pystan==3.4.0 cmdstanpy==1.0.7
         '';
 
       };
