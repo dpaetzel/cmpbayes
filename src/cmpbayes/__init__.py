@@ -341,7 +341,7 @@ class BimodalNonNegative:
     a task and the units are
 
     - distributed bimodally
-    - nonzero
+    - non-negative
 
     The model uses a simple mixture consisting of two Gamma distributions. For
     the exact specifications (e.g. priors etc.), see the Stan file.

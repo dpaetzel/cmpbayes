@@ -28,7 +28,24 @@ For now, cmpbayes provides two models:
   in the 2015 article by Corani and Benavoli, *A Bayesian approach for comparing
   cross-validated algorithms on multiple data sets* (in that publication it's
   called the *Bayesian t test for correlated observations model* equation (8)).
+- `BimodalNonNegative` builds and samples a Bayesian model that can be used to
+  make statistical statements about the difference between two algorithms when
+  run multiple times *independently* on a task. Other than `Kruschke`, the units
+  (i.e. the measurements) for each algorithm are assumed to be
+  
+  - distributed bimodally
+  - non-negative
 
+  The model uses a simple mixture consisting of two Gamma distributions. For the
+  exact specifications (e.g. priors etc.), see the corresponding Stan file.
+
+  The model was originally created to model and compare the running times of
+  algorithms where a small subset of the runs was considerably faster than the
+  large majority.
+
+  Note that this model assumes that the data points for each algorithm are be
+  i.i.d.  This entails that the model does *not* take into account the
+  correlation induced by cross-validation or similar methods.
 
 
 *It is strongly recommended to read about the models and their assumptions in
