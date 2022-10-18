@@ -128,6 +128,11 @@ pip install git+https://github.com/dpaetzel/cmpbayes
 ```
 
 
+However, this is not tested so far and since we're precompiling Stan models,
+this may not work out of the box. Please open an issue if this is the case for
+you.
+
+
 ## Other libraries to check out
 
 

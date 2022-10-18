@@ -13,6 +13,31 @@
       pkgs = import nixpkgs { inherit system; };
       python = pkgs.python39;
     in rec {
+
+      cmdstanpy = python.pkgs.buildPythonPackage rec {
+        pname = "cmdstanpy";
+        version = "1.0.7";
+
+        propagatedBuildInputs = with python.pkgs; [ numpy pandas tqdm ujson ];
+
+        patches = [
+          "${self}/0001-Remove-dynamic-cmdstan-version-selection.patch"
+        ];
+
+        postPatch = ''
+          sed -i \
+            "s|\(cmdstan = \)\.\.\.|\1\"${pkgs.cmdstan}/opt/cmdstan\"|" \
+            cmdstanpy/utils/cmdstan.py
+        '';
+
+        doCheck = false;
+
+        src = python.pkgs.fetchPypi {
+          inherit pname version;
+          sha256 = "sha256-AyzbqfVKup4pLl/JgDcoNKFi5te4QfO7KKt3pCNe4N8=";
+        };
+      };
+
       defaultPackage.${system} = python.pkgs.buildPythonPackage rec {
         pname = "cmpbayes";
         version = "1.0.0-beta";
@@ -22,17 +47,12 @@
         # We use pyproject.toml.
         format = "pyproject";
 
-        # TODO In order to provide a proper default flake here we need to
-        # package pystan/httpstan properly. For now, we assume that pystan is
-        # already there.
-        postPatch = ''
-          sed -i "s/^.*pystan.*$//" setup.cfg
-        '';
+        buildInputs = [ pkgs.cmdstan ];
 
         propagatedBuildInputs = with python.pkgs; [
-          pkgs.cmdstan
-
           arviz
+          click
+          matplotlib
           numpy
           pandas
           scipy
@@ -73,7 +93,7 @@
         # missing symbols error on NixOS. 4.7.1 works, however, so we use that.
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
-          pip install httpstan==4.7.1 pystan==3.4.0 cmdstanpy==1.0.7
+          pip install httpstan==4.7.1 pystan==3.4.0
         '';
 
       };

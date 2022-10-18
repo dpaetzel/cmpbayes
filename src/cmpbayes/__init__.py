@@ -3,40 +3,41 @@
 
 __version__ = '1.0.0-beta'
 
-import subprocess
+from pathlib import Path
 
 import arviz as az  # type: ignore
 import cmdstanpy  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np  # type: ignore
 import scipy.stats as st  # type: ignore
-import stan  # type: ignore
 from pkg_resources import resource_filename  # type: ignore
+
+import stan  # type: ignore
 
 pl_stan_filename = resource_filename(__name__, "pl_model.stan")
 kruschke_filename = resource_filename(__name__, "kruschke.stan")
-bimodal_nonnegative_filename = resource_filename(__name__,
-                                                 "bimodal_nonnegative.stan")
 
-try:
-    # Note that we need what's in the opt directory under NixOS since only there
-    # is the makefile. Otherwise we get a "ValueError: Unable to compile Stan
-    # model file".
-    nixos_version = subprocess.run(
-        ['nixos-version'],
-        capture_output=True).stdout.decode().removesuffix('\n')
-    print(f"Running NixOS {nixos_version}, attempting to fix cmdstan_path.")
-    _stan_path = subprocess.run(["which", "stan"],
-                                capture_output=True).stdout.decode()
-    _cmdstan_path = _stan_path.replace("bin/stan\n", "opt/cmdstan")
-    cmdstanpy.set_cmdstan_path(_cmdstan_path)
-    print(f"Successfully set cmdstan_path to {_cmdstan_path}.")
-except FileNotFoundError:
-    print("Not running on NixOS, not applying automated NixOS fix. "
-          "If you see “ValueError: Unable to compile Stan model file”,"
-          "consider setting cmdstan path to the directory containing "
-          "cmdstan's makefile and bin directory using "
-          "cmdstanpy.set_cmdstan_path(…).")
+STAN_FILES_FOLDER = Path(__file__).parent / "stan"
+
+
+def _load_stan_model(name: str) -> cmdstanpy.CmdStanModel:
+    """
+    Load the precompiled Stan model via `cmdstanpy`.
+    """
+    try:
+        model = cmdstanpy.CmdStanModel(
+            exe_file=STAN_FILES_FOLDER / f"{name}.exe",
+            stan_file=STAN_FILES_FOLDER / f"{name}.stan",
+            compile=False,
+        )
+    except ValueError:
+        raise ValueError(
+            "Precompiled model could not be found at "
+            f"{STAN_FILES_FOLDER}/{name}.exe. "
+            "This is typically due to the cmpbayes library not having been "
+            "installed correctly.")
+
+    return model
 
 
 def _generate_random_seed():
@@ -419,8 +420,7 @@ class BimodalNonNegative:
             var_upper=1.0,
         )
 
-        self.model_ = cmdstanpy.CmdStanModel(
-            stan_file=bimodal_nonnegative_filename)
+        self.model_ = _load_stan_model("bimodal_nonnegative")
 
         self.fit_ = self.model_.sample(data=data, **kwargs)
 
