@@ -124,7 +124,7 @@ class Calvo:
 
         n_instances, n_algorithms = self.metrics.shape
 
-        data = {
+        self.data_ = {
             "n_instances": n_instances,
             "n_algorithms": n_algorithms,
             "orders": orders,
@@ -138,12 +138,12 @@ class Calvo:
 
         # TODO Switch to cmdstanpy
         self.model_: stan.model.Model = stan.build(program_code,
-                                                   data=data,
+                                                   data=self.data_,
                                                    random_seed=random_seed)
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
-        self.data_: arviz.InferenceData = az.from_pystan(
+        self.infdata_: arviz.InferenceData = az.from_pystan(
             posterior=self.fit_,
             # posterior_predictive
             # predictions
@@ -189,11 +189,11 @@ class Calvo:
         # https://mc-stan.org/docs/2_24/stan-users-guide/simulating-from-the-posterior-predictive-distribution.html
         # as well as posterior_predictive="weights_hat" option to from_pystan
 
-        summary = az.summary(self.data_)
+        summary = az.summary(self.infdata_)
         print(summary)
-        az.plot_forest(self.data_, var_names=["~loglik", "~rest"])
-        az.plot_posterior(self.data_)
-        az.plot_trace(self.data_)
+        az.plot_forest(self.infdata_, var_names=["~loglik", "~rest"])
+        az.plot_posterior(self.infdata_)
+        az.plot_trace(self.infdata_)
         plt.show()
 
 
@@ -268,19 +268,19 @@ class Kruschke:
         n_runs1, = self.y1.shape
         n_runs2, = self.y2.shape
 
-        data = dict(n_runs1=n_runs1, n_runs2=n_runs2, y1=self.y1, y2=self.y2)
+        self.data_ = dict(n_runs1=n_runs1, n_runs2=n_runs2, y1=self.y1, y2=self.y2)
 
         if random_seed is None:
             random_seed = _generate_random_seed()
 
         # TODO Switch to cmdstanpy
         self.model_: stan.model.Model = stan.build(program_code,
-                                                   data=data,
+                                                   data=self.data_,
                                                    random_seed=random_seed)
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
-        self.data_: arviz.InferenceData = az.from_pystan(
+        self.infdata_: arviz.InferenceData = az.from_pystan(
             posterior=self.fit_,
             posterior_predictive=["y1_rep", "y2_rep"],
             # predictions
@@ -314,23 +314,19 @@ class Kruschke:
         results and may change any time. Read up on how to interpret models and
         especially on how to work out whether sampling even worked as intended.
         """
-        var_names = ["~y2_rep", "~y1_rep"]
-
-        summary = az.summary(self.data_,
-                             filter_vars="like",
-                             var_names=var_names)
+        summary = az.summary(self.infdata_)
         print(summary)
 
-        az.plot_ppc(self.data_,
+        az.plot_ppc(self.infdata_,
                     kind="kde",
                     data_pairs={
                         "y1": "y1_rep",
                         "y2": "y2_rep"
                     },
                     num_pp_samples=10)
-        az.plot_posterior(self.data_, filter_vars="like", var_names=var_names)
-        az.plot_trace(self.data_, filter_vars="like", var_names=var_names)
-        az.plot_density(self.data_.posterior.mu2 - self.data_.posterior.mu1,
+        az.plot_posterior(self.infdata_)
+        az.plot_trace(self.infdata_)
+        az.plot_density(self.infdata_.posterior.mu2 - self.infdata_.posterior.mu1,
                         hdi_markers="v")
         plt.show()
 
@@ -409,7 +405,7 @@ class BimodalNonNegative:
         n_runs1, = self.y1.shape
         n_runs2, = self.y2.shape
 
-        data = dict(
+        self.data_ = dict(
             n_runs1=n_runs1,
             n_runs2=n_runs2,
             y1=self.y1,
@@ -422,18 +418,18 @@ class BimodalNonNegative:
 
         self.model_ = _load_stan_model("bimodal_nonnegative")
 
-        self.fit_ = self.model_.sample(data=data, **kwargs)
+        self.fit_ = self.model_.sample(data=self.data_, **kwargs)
 
         # TODO Fill InferenceData fully
-        self.data_: arviz.InferenceData = az.from_cmdstanpy(
+        self.infdata_: arviz.InferenceData = az.from_cmdstanpy(
             posterior=self.fit_,
             posterior_predictive=["y1_rep", "y2_rep"],
             # predictions
             # prior
             # prior_predictive
             observed_data={
-                "y1": data["y1"],
-                "y2": data["y2"]
+                "y1": self.data_["y1"],
+                "y2": self.data_["y2"]
             },
             # constant_data
             # predictions_constant_data
@@ -461,13 +457,13 @@ class BimodalNonNegative:
         results and may change any time. Read up on how to interpret models and
         especially on how to work out whether sampling even worked as intended.
         """
-        summary = az.summary(self.data_, filter_vars="like")
+        summary = az.summary(self.infdata_, filter_vars="like")
         print(summary)
 
-        post = self.data_.posterior
+        post = self.infdata_.posterior
 
         # You could sample PPC yourself like this:
-        # post_pred = self.data_.posterior_predictive
+        # post_pred = self.infdata_.posterior_predictive
         # for i in range(10):
         #     chain = np.random.choice(post_pred.chain)
         #     draw = np.random.choice(post_pred.draw)
@@ -493,7 +489,7 @@ class BimodalNonNegative:
                    alpha=0.5,
                    color="C0")
 
-        az.plot_ppc(self.data_,
+        az.plot_ppc(self.infdata_,
                     observed=False,
                     colors=["C1", "C2", "C3"],
                     data_pairs={
@@ -551,8 +547,8 @@ class BimodalNonNegative:
                      color="C5",
                      label="Posterior component means")
 
-        az.plot_posterior(self.data_)
-        az.plot_trace(self.data_)
+        az.plot_posterior(self.infdata_)
+        az.plot_trace(self.infdata_)
         plt.show()
 
 
@@ -575,7 +571,7 @@ class BayesCorrTTest:
 
     This model does not use MCMC/Stan since the posterior is analytically
     tractable. After fitting, its `model_` attribute is a `scipy.stats.t` object
-    which can be queried further. Note that, nevertheless, `data_` is an
+    which can be queried further. Note that, nevertheless, `infdata_` is an
     `arviz.InferenceData` containing a sample of the specified size for a more
     unified interface.
     """
@@ -650,15 +646,15 @@ class BayesCorrTTest:
                            scale=(1 / n + rho / (1 - rho)) * sigma_2_hat)
         # TODO Consider splitting num_samples into chains to prevent arviz warning
         self.fit_: np.ndarray = self.model_.rvs(num_samples)
-        self.data_: arviz.InferenceData = az.convert_to_inference_data(
+        self.infdata_: arviz.InferenceData = az.convert_to_inference_data(
             self.fit_)
 
         return self
 
     def _analyse(self):
-        summary = az.summary(self.data_)
+        summary = az.summary(self.infdata_)
         print(summary)
-        az.plot_posterior(self.data_,
+        az.plot_posterior(self.infdata_,
                           rope={"posterior": {
                               "rope": (-0.01, 0.01)
                           }})
