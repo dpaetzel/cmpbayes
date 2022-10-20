@@ -379,6 +379,25 @@ class BimodalNonNegative:
         self.y1 = y1
         self.y2 = y2
 
+        self.model = _load_stan_model("bimodal_nonnegative")
+
+        n_runs1, = self.y1.shape
+        n_runs2, = self.y2.shape
+
+        self.data = dict(
+            n_runs1=n_runs1,
+            n_runs2=n_runs2,
+            y1=self.y1,
+            y2=self.y2,
+            # Assume the variances of the submodels to lie within [var_lower *
+            # Var(y), var_upper * Var(y)] for y from {y1, y2}.
+            var_lower=0.001,
+            var_upper=1.0,
+        )
+
+        # TODO Add sample caching (hash model, self.data, seed for determining folder name)
+
+
     def fit(self, **kwargs):
         """
         Compares the two samples using the model described in the 2013 article by
@@ -402,23 +421,7 @@ class BimodalNonNegative:
         object
            The fitted model (`self`).
         """
-        n_runs1, = self.y1.shape
-        n_runs2, = self.y2.shape
-
-        self.data_ = dict(
-            n_runs1=n_runs1,
-            n_runs2=n_runs2,
-            y1=self.y1,
-            y2=self.y2,
-            # Assume the variances of the submodels to lie within [var_lower *
-            # Var(y), var_upper * Var(y)] for y from {y1, y2}.
-            var_lower=0.001,
-            var_upper=1.0,
-        )
-
-        self.model_ = _load_stan_model("bimodal_nonnegative")
-
-        self.fit_ = self.model_.sample(data=self.data_, **kwargs)
+        self.fit_ = self.model.sample(data=self.data, **kwargs)
 
         # TODO Fill InferenceData fully
         self.infdata_: arviz.InferenceData = az.from_cmdstanpy(
@@ -428,8 +431,8 @@ class BimodalNonNegative:
             # prior
             # prior_predictive
             observed_data={
-                "y1": self.data_["y1"],
-                "y2": self.data_["y2"]
+                "y1": self.data["y1"],
+                "y2": self.data["y2"]
             },
             # constant_data
             # predictions_constant_data
