@@ -28,12 +28,14 @@
 
         propagatedBuildInputs = with python.pkgs; [
           arviz
-          click
-          matplotlib
           numpy
           pandas
           scipy
           typing-extensions
+
+          # extra_requires
+          click
+          matplotlib
         ];
 
         meta = with pkgs.lib; {
