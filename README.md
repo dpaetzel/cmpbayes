@@ -63,28 +63,48 @@ az.plot_forest(azd, var_names=["~loglik", "~rest"])
 
 
 Rudimentary usage and analysis examples can be found by running the
-`src/cmpbayes/__init__.py` (however, make sure to read the docstrings of the
-`_analyse` methods before using them as they are for your).
+`scripts/examples.py` (however, make sure to read the docstrings of the
+`_analyse` methods of the models before using them as they are for making
+decisions).
 
-You can enter a development environment by running
+After cloning the repository, you can enter a development environment by running
 
 ```bash
 nix develop
 ```
 
-After that,
+and then run the examples by doing
 
 ```bash
-python src/cmpbayes/__init__.py
+python scripts/examples.py
 ```
-
-runs the example.
 
 
 ## Installation
 
 
-You should be able to install the package via pip like so:
+This repository is a Nix Flake, which means that you can add it rather
+straightforwardly to your project's `flake.nix`:
+
+```Nix
+{
+  …
+  inputs.cmpbayes = "github:dpaetzel/cmpbayes";
+  …
+  outputs = { …, cmpbayes } : {
+    …
+    propagatedBuildInputs = [
+      …
+      cmpbayes.defaultPackage."${system}"
+      …
+    ];
+
+  };
+}
+```
+
+
+Alternatively, you should be able to install the package via pip like so:
 
 ```bash
 pip install git+https://github.com/dpaetzel/cmpbayes
