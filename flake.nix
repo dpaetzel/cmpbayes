@@ -1,17 +1,12 @@
 {
-  inputs = {
-    nixpkgs.url =
-      # "github:nixos/nixpkgs/7f9b6e2babf232412682c09e57ed666d8f84ac2d";
-      # Cmdstan 2.30.1
-      # "github:nixos/nixpkgs/7a2d461bf2e0561bde24b8dbd6ff7676a5a68459";
-      "github:NixOS/nixpkgs/0d68d7c857fe301d49cdcd56130e0beea4ecd5aa";
-  };
+  inputs.nixos-config.url = "github:dpaetzel/nixos-config";
 
-  outputs = { self, nixpkgs }:
+  outputs = { self, nixos-config }:
     let
+      nixpkgs = nixos-config.inputs.nixpkgs;
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      python = pkgs.python39;
+      python = pkgs.python310;
     in rec {
 
       defaultPackage.${system} = python.pkgs.buildPythonPackage rec {
