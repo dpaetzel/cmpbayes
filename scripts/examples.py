@@ -83,11 +83,10 @@ def bimodnneg():
 
     iter_sampling = 5000
     seed = 1
-    dir_csv = f"bimodnneg-iter_sampling={iter_sampling}-seed={seed}"
 
-    model = BimodalNonNegative(y1, y2).fit(iter_sampling=iter_sampling,
-                                           seed=seed)
-    model.fit_.save_csvfiles(dir_csv)
+    model = BimodalNonNegative(y1, y2).fit(num_samples=iter_sampling,
+                                           random_seed=seed)
+    model._analyse()
     model._analyse()
 
 

@@ -6,7 +6,6 @@ __version__ = '1.0.0-beta'
 from pathlib import Path
 
 import arviz as az  # type: ignore
-import cmdstanpy  # type: ignore
 import matplotlib.pyplot as plt  # type: ignore
 import numpy as np  # type: ignore
 import scipy.stats as st  # type: ignore
@@ -14,36 +13,32 @@ from pkg_resources import resource_filename  # type: ignore
 
 import stan  # type: ignore
 
-pl_stan_filename = resource_filename(__name__, "pl_model.stan")
-kruschke_filename = resource_filename(__name__, "kruschke.stan")
-
 STAN_FILES_FOLDER = Path(__file__).parent / "stan"
-
-
-def _load_stan_model(name: str) -> cmdstanpy.CmdStanModel:
-    """
-    Load the precompiled Stan model via `cmdstanpy`.
-    """
-    try:
-        model = cmdstanpy.CmdStanModel(
-            exe_file=STAN_FILES_FOLDER / f"{name}.exe",
-            stan_file=STAN_FILES_FOLDER / f"{name}.stan",
-            compile=False,
-        )
-    except ValueError:
-        raise ValueError(
-            "Precompiled model could not be found at "
-            f"{STAN_FILES_FOLDER}/{name}.exe. "
-            "This is typically due to the cmpbayes library not having been "
-            "installed correctly.")
-
-    return model
 
 
 def _generate_random_seed():
     return int(np.random.default_rng().integers(low=0,
                                                 high=2**31,
                                                 endpoint=False))
+
+
+def _compile_stan_model(fname: str,
+                        data: dict,
+                        random_seed=None) -> stan.model.Model:
+    """
+    Compile the Stan model with the given file name using the given data.
+    """
+    with open(STAN_FILES_FOLDER / fname) as f:
+        program_code = f.read()
+
+    if random_seed is None:
+        random_seed = _generate_random_seed()
+
+    model: stan.model.Model = stan.build(program_code,
+                                         data=data,
+                                         random_seed=random_seed)
+
+    return model
 
 
 class Calvo:
@@ -82,6 +77,31 @@ class Calvo:
         self.higher_better = higher_better
         self.algorithm_labels = algorithm_labels
 
+        # For each instance, get the sorting permutation of the algorithms (i.e. the
+        # indexes of the algorithms in the order such that their metrics are sorted
+        # ascendingly).
+        orders = np.argsort(self.metrics, axis=1)
+
+        # np.argsort sorts ascendingly, if higher is better we thus want to reverse the
+        # ordering such that the best stands at the front.
+        if self.higher_better:
+            orders = np.flip(orders, axis=1)
+
+        # Stan starts indexes from 1 and each element of orders is an index (i.e. an
+        # algorithm number).
+        orders = orders + 1
+
+        n_instances, n_algorithms = self.metrics.shape
+
+        self.data = dict(
+            n_instances=n_instances,
+            n_algorithms=n_algorithms,
+            orders=orders,
+            weights_instances=np.ones(n_instances),
+            # Uniform prior.
+            alpha=np.ones(n_algorithms),
+        )
+
     def fit(self, random_seed=None, **kwargs):
         """
         Builds the model and samples from its posterior.
@@ -104,42 +124,10 @@ class Calvo:
         object
            The fitted model (`self`).
         """
-        # For each instance, get the sorting permutation of the algorithms (i.e. the
-        # indexes of the algorithms in the order such that their metrics are sorted
-        # ascendingly).
-        orders = np.argsort(self.metrics, axis=1)
+        fname = "pl_model.stan"
 
-        # np.argsort sorts ascendingly, if higher is better we thus want to reverse the
-        # ordering such that the best stands at the front.
-        if self.higher_better:
-            orders = np.flip(orders, axis=1)
-
-        # Stan starts indexes from 1 and each element of orders is an index (i.e. an
-        # algorithm number).
-        orders = orders + 1
-
-        # Read the Stan model from disk.
-        with open(pl_stan_filename) as f:
-            program_code = f.read()
-
-        n_instances, n_algorithms = self.metrics.shape
-
-        self.data_ = {
-            "n_instances": n_instances,
-            "n_algorithms": n_algorithms,
-            "orders": orders,
-            "weights_instances": np.ones(n_instances),
-            # Uniform prior.
-            "alpha": np.ones(n_algorithms),
-        }
-
-        if random_seed is None:
-            random_seed = _generate_random_seed()
-
-        # TODO Switch to cmdstanpy
-        self.model_: stan.model.Model = stan.build(program_code,
-                                                   data=self.data_,
-                                                   random_seed=random_seed)
+        self.model_: stan.model.Model = _compile_stan_model(
+            fname, data=self.data, random_seed=random_seed)
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
@@ -238,6 +226,14 @@ class Kruschke:
         self.y1 = y1
         self.y2 = y2
 
+        n_runs1, = self.y1.shape
+        n_runs2, = self.y2.shape
+
+        self.data = dict(n_runs1=n_runs1,
+                         n_runs2=n_runs2,
+                         y1=self.y1,
+                         y2=self.y2)
+
     def fit(self, random_seed=None, **kwargs):
         """
         Compares the two samples using the model described in the 2013 article by
@@ -261,22 +257,10 @@ class Kruschke:
         object
            The fitted model (`self`).
         """
-        # Read the Stan model from disk.
-        with open(kruschke_filename) as f:
-            program_code = f.read()
+        fname = "kruschke.stan"
 
-        n_runs1, = self.y1.shape
-        n_runs2, = self.y2.shape
-
-        self.data_ = dict(n_runs1=n_runs1, n_runs2=n_runs2, y1=self.y1, y2=self.y2)
-
-        if random_seed is None:
-            random_seed = _generate_random_seed()
-
-        # TODO Switch to cmdstanpy
-        self.model_: stan.model.Model = stan.build(program_code,
-                                                   data=self.data_,
-                                                   random_seed=random_seed)
+        self.model_: stan.model.Model = _compile_stan_model(
+            fname, data=self.data, random_seed=random_seed)
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
@@ -326,7 +310,8 @@ class Kruschke:
                     num_pp_samples=10)
         az.plot_posterior(self.infdata_)
         az.plot_trace(self.infdata_)
-        az.plot_density(self.infdata_.posterior.mu2 - self.infdata_.posterior.mu1,
+        az.plot_density(self.infdata_.posterior.mu2
+                        - self.infdata_.posterior.mu1,
                         hdi_markers="v")
         plt.show()
 
@@ -379,8 +364,6 @@ class BimodalNonNegative:
         self.y1 = y1
         self.y2 = y2
 
-        self.model = _load_stan_model("bimodal_nonnegative")
-
         n_runs1, = self.y1.shape
         n_runs2, = self.y2.shape
 
@@ -395,10 +378,7 @@ class BimodalNonNegative:
             var_upper=1.0,
         )
 
-        # TODO Add sample caching (hash model, self.data, seed for determining folder name)
-
-
-    def fit(self, **kwargs):
+    def fit(self, random_seed=None, **kwargs):
         """
         Compares the two samples using the model described in the 2013 article by
         Kruschke, *Bayesian Estimation Supersedes the t Test*.
@@ -421,26 +401,28 @@ class BimodalNonNegative:
         object
            The fitted model (`self`).
         """
-        self.fit_ = self.model.sample(data=self.data, **kwargs)
+        fname = "bimodal_nonnegative.stan"
+
+        self.model_: stan.model.Model = _compile_stan_model(
+            fname, data=self.data, random_seed=random_seed)
+
+        self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
         # TODO Fill InferenceData fully
-        self.infdata_: arviz.InferenceData = az.from_cmdstanpy(
+        self.infdata_: arviz.InferenceData = az.from_pystan(
             posterior=self.fit_,
             posterior_predictive=["y1_rep", "y2_rep"],
             # predictions
             # prior
             # prior_predictive
-            observed_data={
-                "y1": self.data["y1"],
-                "y2": self.data["y2"]
-            },
+            observed_data=["y1" ,"y2"],
             # constant_data
             # predictions_constant_data
             # log_likelihood
-            # index_origin
-            # coords
-            # dims
-            # save_warmup
+            # TODO coords
+            # TODO dims
+            posterior_model=self.model_,
+            # prior_model
         )
 
         return self
@@ -579,7 +561,8 @@ class BayesCorrTTest:
     unified interface.
     """
 
-    # TODO What about the case where the algorithm is run multiple times *and* CV is used?
+    # TODO What about the case where the algorithm is run multiple times *and*
+    # CV is used?
 
     def __init__(self, y1, y2, fraction_test):
         """
