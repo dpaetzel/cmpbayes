@@ -415,7 +415,7 @@ class BimodalNonNegative:
             # predictions
             # prior
             # prior_predictive
-            observed_data=["y1" ,"y2"],
+            observed_data=["y1", "y2"],
             # constant_data
             # predictions_constant_data
             # log_likelihood
@@ -534,6 +534,153 @@ class BimodalNonNegative:
 
         az.plot_posterior(self.infdata_)
         az.plot_trace(self.infdata_)
+        plt.show()
+
+
+class NonNegative:
+    """
+    A Bayesian model that can be used to make statistical statements about the
+    difference between two algorithms when run multiple times *independently* on
+    a task and the units are
+
+    - distributed unimodally
+    - non-negative
+
+    The model uses a simple Gamma distribution for each data set. For the exact
+    specifications (e.g. priors etc.), see the Stan file.
+
+    Originally created to model and compare the running times of algorithms.
+
+    Notes
+    -----
+    This model assumes that the data points for each algorithm are be i.i.d.
+    This entails that the model does *not* take into account the correlation
+    induced by cross-validation or similar methods.
+    """
+
+    def __init__(self, y1, y2):
+        """
+        Parameters
+        ----------
+        y1 : array of shape (n_tasks1,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the first method to compare.
+        y2 : array of shape (n_tasks2,)
+            Independently (i.e. no cross-validation etc.) generated performance
+            statistics values (e.g. MSE, accuracy, maximum fitness, average RL
+            return, …) of the second method to compare.
+
+        Notes
+        -----
+        As of now, this expects arrays (in particular, `pandas.DataFrame` or
+        `pandas.Series` are not supported as inputs—use their `to_numpy()`
+        method before passing them here).
+
+        The arrays may have differing lengths as the model does not assume the
+        samples to be paired.
+        """
+        self.y1 = y1
+        self.y2 = y2
+
+        n_runs1, = self.y1.shape
+        n_runs2, = self.y2.shape
+
+        self.data = dict(
+            n_runs1=n_runs1,
+            n_runs2=n_runs2,
+            y1=self.y1,
+            y2=self.y2,
+            # Assume the variances of the submodels to lie within [var_lower *
+            # Var(y), var_upper * Var(y)] for y from {y1, y2}.
+            var_lower=0.001,
+            var_upper=1.0,
+        )
+
+    def fit(self, random_seed=None, **kwargs):
+        """
+        Compares the two samples using this model.
+
+        Parameters
+        ----------
+        random_seed : non-negative int < 2**31 - 1
+            Random seed to be used for sampling. See
+            [`stan.build`](https://pystan.readthedocs.io/en/latest/reference.html).
+        kwargs : kwargs
+            Are passed through to `stan.model.Model.sample`. You may set
+            `num_samples`, `num_warmup` and many more options here. See the
+            documentation of
+            [sample](https://pystan.readthedocs.io/en/latest/reference.html#stan.model.Model.sample)
+            as well as the [code of the sampler currently
+            used](https://github.com/stan-dev/stan/blob/develop/src/stan/services/sample/hmc_nuts_diag_e_adapt.hpp).
+
+        Returns
+        -------
+        object
+           The fitted model (`self`).
+        """
+        fname = "nonnegative.stan"
+
+        self.model_: stan.model.Model = _compile_stan_model(
+            fname, data=self.data, random_seed=random_seed)
+
+        self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
+
+        # TODO Fill InferenceData fully
+        self.infdata_: arviz.InferenceData = az.from_pystan(
+            posterior=self.fit_,
+            posterior_predictive=["y1_rep", "y2_rep"],
+            # predictions
+            # prior
+            # prior_predictive
+            observed_data={
+                "y1": self.data["y1"],
+                "y2": self.data["y2"]
+            },
+            # constant_data
+            # predictions_constant_data
+            # log_likelihood
+            # coords
+            # dims
+            posterior_model=self.model_,
+            # prior_model
+        )
+
+        return self
+
+    def _analyse(self):
+        """
+        Perform a rudimentary analysis of the built model.
+
+        Mainly meant to be a starting point for analysing the models built as
+        well as showcase a few things that can be done with the result,
+        especially when combining this library with [the arviz
+        library](https://python.arviz.org/en/latest/).
+
+        Warnings
+        --------
+        This is explicitely *not* meant as a best practice of how to analyse the
+        results and may change any time. Read up on how to interpret models and
+        especially on how to work out whether sampling even worked as intended.
+        """
+        summary = az.summary(self.infdata_, filter_vars="like")
+        print(summary)
+
+        summary = az.summary(self.infdata_)
+        print(summary)
+
+        az.plot_ppc(self.infdata_,
+                    kind="kde",
+                    data_pairs={
+                        "y1": "y1_rep",
+                        "y2": "y2_rep"
+                    },
+                    num_pp_samples=10)
+        az.plot_posterior(self.infdata_)
+        az.plot_trace(self.infdata_)
+        az.plot_density(self.infdata_.posterior.mean2
+                        - self.infdata_.posterior.mean1,
+                        hdi_markers="v")
         plt.show()
 
 

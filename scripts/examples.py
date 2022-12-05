@@ -87,6 +87,24 @@ def bimodnneg():
     model = BimodalNonNegative(y1, y2).fit(num_samples=iter_sampling,
                                            random_seed=seed)
     model._analyse()
+
+
+@cli.command()
+def nneg():
+    """
+    Run test scenario for the non-negative unimodal model.
+    """
+    from cmpbayes import NonNegative
+
+    # scale == 1 / beta.
+    y1 = st.gamma.rvs(a=3, scale=1/4, size=30)
+    y2 = st.gamma.rvs(a=6, scale=1/2, size=30)
+
+    num_samples = 5000
+    seed = 1
+
+    model = NonNegative(y1, y2).fit(num_samples=num_samples,
+                                    random_seed=seed)
     model._analyse()
 
 
