@@ -131,7 +131,7 @@ class Calvo:
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
-        self.infdata_: arviz.InferenceData = az.from_pystan(
+        self.infdata_: az.InferenceData = az.from_pystan(
             posterior=self.fit_,
             # posterior_predictive
             # predictions
@@ -264,7 +264,7 @@ class Kruschke:
 
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
-        self.infdata_: arviz.InferenceData = az.from_pystan(
+        self.infdata_: az.InferenceData = az.from_pystan(
             posterior=self.fit_,
             posterior_predictive=["y1_rep", "y2_rep"],
             # predictions
@@ -409,7 +409,7 @@ class BimodalNonNegative:
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
         # TODO Fill InferenceData fully
-        self.infdata_: arviz.InferenceData = az.from_pystan(
+        self.infdata_: az.InferenceData = az.from_pystan(
             posterior=self.fit_,
             posterior_predictive=["y1_rep", "y2_rep"],
             # predictions
@@ -572,11 +572,11 @@ class NonNegative:
         """
         Parameters
         ----------
-        y1 : array of shape (n_tasks1,)
+        y1 : array of shape (n_runs1,)
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the first method to compare.
-        y2 : array of shape (n_tasks2,)
+        y2 : array of shape (n_runs2,)
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the second method to compare.
@@ -664,7 +664,7 @@ class NonNegative:
         self.fit_: stan.fit.Fit = self.model_.sample(**kwargs)
 
         # TODO Fill InferenceData fully
-        self.infdata_: arviz.InferenceData = az.from_pystan(
+        self.infdata_: az.InferenceData = az.from_pystan(
             posterior=self.fit_,
             posterior_predictive=["y1_rep", "y2_rep"],
             # predictions
@@ -752,11 +752,11 @@ class BayesCorrTTest:
         """
         Parameters
         ----------
-        y1 : array of shape (n_tasks,)
+        y1 : array of shape (n_runs,)
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the first method to compare.
-        y2 : array of shape (n_tasks,)
+        y2 : array of shape (n_runs,)
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the second method to compare.
