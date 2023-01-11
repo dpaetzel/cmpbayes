@@ -134,5 +134,24 @@ def nneg(var_lower, var_upper, mean_upper):
     plt.show()
 
 
+@cli.command()
+def betabin():
+    """
+    Run test scenario for the beta-binomial model.
+    """
+    from cmpbayes import BetaBinomial
+
+    n_success1 = 2
+    n_success2 = 3
+    n1 = 20
+    n2 = 21
+
+    model = BetaBinomial(n_success1 = n_success1,
+                         n_success2 = n_success2,
+                         n1 = n1,
+                         n2 = n2).fit()
+    model._analyse()
+
+
 if __name__ == '__main__':
     cli()

@@ -829,3 +829,133 @@ class BayesCorrTTest:
                               "rope": (-0.01, 0.01)
                           }})
         plt.show()
+
+
+class BetaBinomial:
+    """
+    A Bayesian model that can be used to make statistical statements about the
+    difference in success rates between two algorithms when run independently
+    multiple times on a task.
+
+    The underlying model consists of two simple beta-binomial distributions, one
+    for each algorithm. Prior beliefs can be configured by setting the
+    corresponding parameters of the beta prior distribution in the constructor.
+
+    Notes
+    -----
+    This model assumes that the data points for each algorithm are be i.i.d.
+    This entails that the model does *not* take into account the correlation
+    induced by cross-validation or similar methods.
+
+    This model does not use MCMC/Stan since the posterior is analytically
+    tractable. After fitting, its `model_` attribute is a tuple of two
+    `scipy.stats.beta` objects (the two posteriors, one for each method) which
+    can be queried further. Note that, nevertheless, `infdata_` is an
+    `arviz.InferenceData` containing a sample of the specified size for a more
+    unified interface.
+    """
+
+    def __init__(self,
+                 *,
+                 n_success1,
+                 n_success2,
+                 n1,
+                 n2,
+                 a1=1,
+                 b1=1,
+                 a2=1,
+                 b2=1):
+        """
+        Parameters
+        ----------
+        n_success1 : int >= 0
+            Number of times that the first method was successful when run `n1`
+            times independently.
+        n_success2 : int >= 0
+            Number of times that the second method was successful when run `n2`
+            times independently.
+        n1 : int > 0
+            Number of times that the first method was run.
+        n2 : int > 0
+            Number of times that the second method was run.
+        a1, b1, a2, b2 : float > 0
+            Parameters for the two beta prior. Setting both `a` and `b` to 1
+            corresponds to a uniform prior and is the default. Note that `a` and
+            `b` can be seen as the effective number of prior observations, i.e.
+            setting `a1 = 10` and `b1 = 1` means that our prior belief is that
+            the first method is successful in 10 of 11 cases and unsuccessful in
+            1 of 11 cases.
+        """
+        self.n_success1 = n_success1
+        self.n1 = n1
+        self.n_success2 = n_success2
+        self.n2 = n2
+        self.a1 = a1
+        self.b1 = b1
+        self.a2 = a2
+        self.b2 = b2
+
+    def fit(self, random_state=None, n_samples=10000):
+        """
+        Parameters
+        ----------
+        random_state : `np.random.RandomState` object
+            Random number generator to be used for sampling the posterior
+            (passed to SciPy's distribution objects).
+        n_samples : int
+            Number of samples to draw from the distribution.
+
+        Returns
+        -------
+        object
+            The fitted model (`self`).
+        """
+        # Estimate the distribution parameters using the standard analytical
+        # solution for the beta-binomial distribution.
+        posterior1 = st.beta(a=self.a1 + self.n_success1,
+                             b=self.b1 + self.n1 - self.n_success1)
+        posterior2 = st.beta(a=self.a2 + self.n_success2,
+                             b=self.b2 + self.n2 - self.n_success2)
+
+        self.model_ = (posterior1, posterior2)
+
+        sample_p1 = posterior1.rvs(n_samples)
+        sample_p2 = posterior2.rvs(n_samples)
+
+        self.fit_: np.ndarray = sample_p2 - sample_p1
+        self.infdata_: az.InferenceData = az.convert_to_inference_data(
+            dict(p1=sample_p1, p2=sample_p2, p2_minus_p1=self.fit_))
+
+        return self
+
+    def _analyse(self):
+        summary = az.summary(self.infdata_)
+        print(summary)
+
+        X = np.linspace(0, 1, 100)
+
+        fig, ax = plt.subplots(2)
+        label1 = "p(A successful)"
+        label2 = "p(B successful)"
+        ax[0].plot(X, self.model_[0].pdf(X), label=label1)
+        ax[0].plot(X, self.model_[1].pdf(X), label=label2)
+        ax[0].legend()
+
+        posterior = self.infdata_.posterior
+
+        ax[1].hist((posterior.p2.to_numpy() - posterior.p1.to_numpy())[0],
+                   bins=200,
+                   label=f"Distribution of {label2} - {label1}")
+        ax[1].legend()
+
+        # Note that we do not deal with multiple chains here since we only have
+        # a single chain anyways.
+        n_samples = len(posterior.p2.draw)
+        # Note that we have to convert to float because the result is a 0-dim
+        # `xarray`.
+        p_2gt1 = float(np.sum(posterior.p2 > posterior.p1) / n_samples)
+        ax[0].set_title(f"p({label2} - {label1} > 0)\n"
+                        f"= p({label2} > {label1})\n"
+                        f"= {p_2gt1:.2}")
+
+        plt.show()
