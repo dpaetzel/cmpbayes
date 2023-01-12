@@ -115,7 +115,7 @@ generated quantities {
     y1_rep[i] = gamma_rng(alpha1, beta1);
   }
   array [n_runs2] real y2_rep;
-  for (i in 1:n_runs1) {
+  for (i in 1:n_runs2) {
     y2_rep[i] = gamma_rng(alpha2, beta2);
   }
 }
