@@ -23,8 +23,9 @@ data {
   real<lower=0, upper=1> var_lower;
   real<lower=var_lower> var_upper;
 
-  // Rate of unshifted means that should lie in [0, max(y)].
-  real<lower=0, upper=1> mean_rate;
+  // Hyperprior parameter. Assume that with a probability of 90%, the real data
+  // means lie in [min(y)/100, min(y)/100 + mean_upper].
+  real<lower=0> mean_upper;
 
   // Number of censored data points for each of the methods.
   int<lower=0> n_censored1;
@@ -37,9 +38,9 @@ data {
 
 transformed data {
   // We want 90% of (exponentially distributed) unshifted means to lie in [0,
-  // max(y)].
-  real lambda_mean1 = - log(1 - mean_rate) / max(y1);
-  real lambda_mean2 = - log(1 - mean_rate) / max(y2);
+  // mean_upper].
+  real lambda_mean1 = - log(1 - 0.9) / mean_upper;
+  real lambda_mean2 = - log(1 - 0.9) / mean_upper;
 
   // We cache these.
   real var_y1_upper = var_upper * variance(y1);

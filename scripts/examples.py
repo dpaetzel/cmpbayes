@@ -92,8 +92,8 @@ def bimodnneg():
 @cli.command()
 @click.option("--var-lower", default=None, type=float)
 @click.option("--var-upper", default=None, type=float)
-@click.option("--mean-rate", default=None, type=float)
-def nneg(var_lower, var_upper, mean_rate):
+@click.option("--mean-upper", default=None, type=float)
+def nneg(var_lower, var_upper, mean_upper):
     """
     Run test scenario for the non-negative unimodal model.
     """
@@ -115,7 +115,7 @@ def nneg(var_lower, var_upper, mean_rate):
                         y2,
                         var_lower=var_lower,
                         var_upper=var_upper,
-                        mean_rate=mean_rate,
+                        mean_upper=mean_upper,
                         n_censored1=n_censored1,
                         n_censored2=n_censored2,
                         censoring_point=censoring_point).fit(

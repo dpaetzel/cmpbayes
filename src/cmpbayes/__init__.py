@@ -565,7 +565,7 @@ class NonNegative:
                  y2,
                  var_lower=None,
                  var_upper=None,
-                 mean_rate=None,
+                 mean_upper=None,
                  n_censored1=0,
                  n_censored2=0,
                  censoring_point=3000.0):
@@ -586,10 +586,10 @@ class NonNegative:
             y from {y1, y2}. If `None`, use the default non-committal values of
             `0.001` and `1000.0` which are the ones used by Kruschke in his 2013
             paper.
-        mean_rate : float in (0, 1)
-            Hyperprior parameters on the means. Prior belief of the probability
-            of the actual mean of the data lying in [min(y)/100, min(y)/100 +
-            max(y)]. If `None`, use the default of 0.9.
+        mean_upper : float in (0, 1)
+            Hyperprior parameter on the means. We assume that with a probability
+            of 90%, the real data means lie in [min(y)/100, min(y)/100 +
+            mean_upper]. If `None`, use the default of `2 * max(y)`.
         n_censored1, n_censored2 : int >= 0
             Number of censored data points for each of the methods.
         censoring_point : float > 0
@@ -610,7 +610,9 @@ class NonNegative:
 
         self.var_lower = var_lower if var_lower is not None else 0.001
         self.var_upper = var_upper if var_upper is not None else 1000.0
-        self.mean_rate = mean_rate if mean_rate is not None else 0.9
+        # TODO Consider to support setting this for each method individually
+        self.mean_upper = (mean_upper if mean_upper is not None else 2.0
+                           * y2.max())
 
         self.n_censored1 = n_censored1
         self.n_censored2 = n_censored2
@@ -626,7 +628,7 @@ class NonNegative:
             y2=self.y2,
             var_lower=self.var_lower,
             var_upper=self.var_upper,
-            mean_rate=self.mean_rate,
+            mean_upper=self.mean_upper,
             n_censored1=self.n_censored1,
             n_censored2=self.n_censored2,
             censoring_point=self.censoring_point,
