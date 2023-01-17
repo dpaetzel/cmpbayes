@@ -107,13 +107,31 @@ def nneg(var_lower, var_upper, mean_rate):
     num_samples = 5000
     seed = 1
 
+    n_censored1 = 2
+    n_censored2 = 5
+    censoring_point = 10
+
     model = NonNegative(y1,
                         y2,
                         var_lower=var_lower,
                         var_upper=var_upper,
-                        mean_rate=mean_rate).fit(num_samples=num_samples,
-                                                 random_seed=seed)
+                        mean_rate=mean_rate,
+                        n_censored1=n_censored1,
+                        n_censored2=n_censored2,
+                        censoring_point=censoring_point).fit(
+                            num_samples=num_samples, random_seed=seed)
+
     model._analyse()
+
+    post = model.infdata_.posterior
+    diff = post.mean2.to_numpy() - post.mean1.to_numpy()
+    plt.hist(diff.ravel(),
+             bins=100,
+             density=True,
+             label=(f"n_censored1={n_censored1}, "
+                    f"n_censored2={n_censored2}, "
+                    f"censoring_point={censoring_point}"))
+    plt.show()
 
 
 if __name__ == '__main__':

@@ -12,10 +12,10 @@ data {
   // Number of runs in the second data set.
   int<lower=1> n_runs2;
 
-  // Units for the first method to be compared.
+  // (Uncensored) units for the first method to be compared.
   vector[n_runs1] y1;
 
-  // Units for the second method to be compared.
+  // (Uncensored) units for the second method to be compared.
   vector[n_runs2] y2;
 
   // Factor for the lower and upper bound on the variance of the prior on the
@@ -25,6 +25,13 @@ data {
 
   // Rate of unshifted means that should lie in [0, max(y)].
   real<lower=0, upper=1> mean_rate;
+
+  // Number of censored data points for each of the methods.
+  int<lower=0> n_censored1;
+  int<lower=0> n_censored2;
+
+  // Value above which data has been censored.
+  real<lower=0> censoring_point;
 }
 
 
@@ -60,6 +67,9 @@ parameters {
   <lower=(mean2_unshifted + min_mean2) / var_y2_upper,
     upper=(mean2_unshifted + min_mean2) / var_y2_lower>
     beta2;
+
+  array[n_censored1] real<lower=censoring_point> y1_cens;
+  array[n_censored2] real<lower=censoring_point> y2_cens;
 }
 
 
@@ -87,6 +97,8 @@ model {
 
   y1 ~ gamma(alpha1, beta1);
   y2 ~ gamma(alpha2, beta2);
+  y1_cens ~ gamma(alpha1, beta1);
+  y2_cens ~ gamma(alpha2, beta2);
 }
 
 

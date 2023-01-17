@@ -545,6 +545,8 @@ class NonNegative:
 
     - distributed unimodally
     - non-negative
+    - optional: cut off at some point (e.g. if runs have been aborted at a
+      maximum number of steps; also known as *right-censored data*)
 
     The model uses a simple Gamma distribution for each data set. For the exact
     specifications (e.g. priors etc.), see the Stan file.
@@ -563,7 +565,10 @@ class NonNegative:
                  y2,
                  var_lower=None,
                  var_upper=None,
-                 mean_rate=None):
+                 mean_rate=None,
+                 n_censored1=0,
+                 n_censored2=0,
+                 censoring_point=3000.0):
         """
         Parameters
         ----------
@@ -585,6 +590,11 @@ class NonNegative:
             Hyperprior parameters on the means. Prior belief of the probability
             of the actual mean of the data lying in [min(y)/100, min(y)/100 +
             max(y)]. If `None`, use the default of 0.9.
+        n_censored1, n_censored2 : int >= 0
+            Number of censored data points for each of the methods.
+        censoring_point : float > 0
+            Value above which data has been censored. Only relevant if at least
+            one of `n_censored1` and `n_censored2` is greater than 0.
 
         Notes
         -----
@@ -602,6 +612,10 @@ class NonNegative:
         self.var_upper = var_upper if var_upper is not None else 1000.0
         self.mean_rate = mean_rate if mean_rate is not None else 0.9
 
+        self.n_censored1 = n_censored1
+        self.n_censored2 = n_censored2
+        self.censoring_point = censoring_point
+
         n_runs1, = self.y1.shape
         n_runs2, = self.y2.shape
 
@@ -613,6 +627,9 @@ class NonNegative:
             var_lower=self.var_lower,
             var_upper=self.var_upper,
             mean_rate=self.mean_rate,
+            n_censored1=self.n_censored1,
+            n_censored2=self.n_censored2,
+            censoring_point=self.censoring_point,
         )
 
     def fit(self, random_seed=None, **kwargs):
