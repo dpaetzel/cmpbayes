@@ -21,14 +21,18 @@ data {
   // Factor for the lower and upper bound on the variance of the prior on the
   // gamma distribution.
   real<lower=0, upper=1> var_lower;
-  real<lower=var_lower, upper=1> var_upper;
+  real<lower=var_lower> var_upper;
+
+  // Rate of unshifted means that should lie in [0, max(y)].
+  real<lower=0, upper=1> mean_rate;
 }
 
 
 transformed data {
-  // We want 90% of (exponentially distributed) means to lie in [0, max(y)].
-  real lambda_mean1 = - log(1 - 0.9) / max(y1);
-  real lambda_mean2 = - log(1 - 0.9) / max(y2);
+  // We want 90% of (exponentially distributed) unshifted means to lie in [0,
+  // max(y)].
+  real lambda_mean1 = - log(1 - mean_rate) / max(y1);
+  real lambda_mean2 = - log(1 - mean_rate) / max(y2);
 
   // We cache these.
   real var_y1_upper = var_upper * variance(y1);

@@ -558,7 +558,12 @@ class NonNegative:
     induced by cross-validation or similar methods.
     """
 
-    def __init__(self, y1, y2):
+    def __init__(self,
+                 y1,
+                 y2,
+                 var_lower=None,
+                 var_upper=None,
+                 mean_rate=None):
         """
         Parameters
         ----------
@@ -570,6 +575,16 @@ class NonNegative:
             Independently (i.e. no cross-validation etc.) generated performance
             statistics values (e.g. MSE, accuracy, maximum fitness, average RL
             return, …) of the second method to compare.
+        var_lower, var_upper : float > 0 or None
+            Hyperprior parameters on the variances. Assume the variances of the
+            submodels to lie within [var_lower * Var(y), var_upper * Var(y)] for
+            y from {y1, y2}. If `None`, use the default non-committal values of
+            `0.001` and `1000.0` which are the ones used by Kruschke in his 2013
+            paper.
+        mean_rate : float in (0, 1)
+            Hyperprior parameters on the means. Prior belief of the probability
+            of the actual mean of the data lying in [min(y)/100, min(y)/100 +
+            max(y)]. If `None`, use the default of 0.9.
 
         Notes
         -----
@@ -583,6 +598,10 @@ class NonNegative:
         self.y1 = y1
         self.y2 = y2
 
+        self.var_lower = var_lower if var_lower is not None else 0.001
+        self.var_upper = var_upper if var_upper is not None else 1000.0
+        self.mean_rate = mean_rate if mean_rate is not None else 0.9
+
         n_runs1, = self.y1.shape
         n_runs2, = self.y2.shape
 
@@ -591,10 +610,9 @@ class NonNegative:
             n_runs2=n_runs2,
             y1=self.y1,
             y2=self.y2,
-            # Assume the variances of the submodels to lie within [var_lower *
-            # Var(y), var_upper * Var(y)] for y from {y1, y2}.
-            var_lower=0.001,
-            var_upper=1.0,
+            var_lower=self.var_lower,
+            var_upper=self.var_upper,
+            mean_rate=self.mean_rate,
         )
 
     def fit(self, random_seed=None, **kwargs):

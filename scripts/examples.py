@@ -90,21 +90,29 @@ def bimodnneg():
 
 
 @cli.command()
-def nneg():
+@click.option("--var-lower", default=None, type=float)
+@click.option("--var-upper", default=None, type=float)
+@click.option("--mean-rate", default=None, type=float)
+def nneg(var_lower, var_upper, mean_rate):
     """
     Run test scenario for the non-negative unimodal model.
     """
     from cmpbayes import NonNegative
 
     # scale == 1 / beta.
-    y1 = st.gamma.rvs(a=3, scale=1/4, size=30)
-    y2 = st.gamma.rvs(a=6, scale=1/2, size=30)
+    size = 20
+    y1 = st.gamma.rvs(a=3, scale=1 / 10, size=size)
+    y2 = st.gamma.rvs(a=4, scale=1 / 10, size=size)
 
     num_samples = 5000
     seed = 1
 
-    model = NonNegative(y1, y2).fit(num_samples=num_samples,
-                                    random_seed=seed)
+    model = NonNegative(y1,
+                        y2,
+                        var_lower=var_lower,
+                        var_upper=var_upper,
+                        mean_rate=mean_rate).fit(num_samples=num_samples,
+                                                 random_seed=seed)
     model._analyse()
 
 
