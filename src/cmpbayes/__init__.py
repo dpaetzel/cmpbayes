@@ -586,7 +586,7 @@ class NonNegative:
             y from {y1, y2}. If `None`, use the default non-committal values of
             `0.001` and `1000.0` which are the ones used by Kruschke in his 2013
             paper.
-        mean_upper : float in (0, 1)
+        mean_upper : float > mean(y)/100
             Hyperprior parameter on the means. We assume that with a probability
             of 90%, the real data means lie in [min(y)/100, min(y)/100 +
             mean_upper]. If `None`, use the default of `2 * max(y)`.
