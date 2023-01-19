@@ -34,6 +34,13 @@
           matplotlib
         ];
 
+        # Since pystan isn't packaged yet (and I don't have time to package it);
+        # users are required to install it using a venv hook for now. See
+        # devShell further below.
+        postPatch = ''
+          sed -i "s/.*pystan.*//" setup.cfg
+        '';
+
         meta = with pkgs.lib; {
           description =
             "Small Python library for Bayesian data analysis for algorithms results";
