@@ -18,8 +18,6 @@
         # We use pyproject.toml.
         format = "pyproject";
 
-        buildInputs = [ pkgs.cmdstan ];
-
         propagatedBuildInputs = with python.pkgs; [
           arviz
           click
@@ -71,7 +69,7 @@
         # missing symbols error on NixOS. 4.7.1 works, however, so we use that.
         postVenvCreation = ''
           unset SOURCE_DATE_EPOCH
-          pip install httpstan==4.7.1 pystan==3.4.0
+          pip install pystan==3.4.0
         '';
 
       };
