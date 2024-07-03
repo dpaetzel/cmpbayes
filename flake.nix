@@ -5,7 +5,7 @@
     let
       system = "x86_64-linux";
       pkgs = import nixpkgs { inherit system; };
-      python = pkgs.python310;
+      python = pkgs.python311;
     in rec {
 
       defaultPackage.${system} = python.pkgs.buildPythonPackage rec {
