@@ -806,14 +806,17 @@ class BayesCorrTTest:
 
         x_over = x.mean()
         n = len(x)
-        sigma_2_hat = ((x - x_over)**2).sum() / (n - 1)
         rho = self.fraction_test
+
+        sigma_2_hat = ((x - x_over) ** 2).sum() / (n - 1)
+        corrected_sigma_2_hat = (1 / n + rho / (1 - rho)) * sigma_2_hat  # Corrected variance using Nadeau-Bengio's correction
+        scale = np.sqrt(corrected_sigma_2_hat)  # Calculate the scale parameter incorporating the correlation factor
 
         # Equation (8) from Corani and Benavoli, 2015, *A Bayesian approach for
         # comparing cross-validated algorithms on multiple data sets*.
         self.model_ = st.t(df=n - 1,
                            loc=x_over,
-                           scale=(1 / n + rho / (1 - rho)) * sigma_2_hat)
+                           scale=scale)
         # TODO Consider splitting num_samples into chains to prevent arviz warning
         self.fit_: np.ndarray = self.model_.rvs(num_samples)
         self.infdata_: arviz.InferenceData = az.convert_to_inference_data(
